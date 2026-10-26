@@ -74,6 +74,16 @@ def collect_runs(output_dir: str) -> List[Dict[str, Any]]:
                 if metrics is None or evaluation is None:
                     log(f"missing artifacts for {group}/{mode}")
                     continue
+                records = losses or []
+                grad = sorted(
+                    r["grad_norm"] for r in records if r.get("grad_norm") is not None
+                )
+                tok_acc = [
+                    r["mean_token_accuracy"]
+                    for r in records
+                    if r.get("mean_token_accuracy") is not None
+                ]
+                tok_ent = [r["entropy"] for r in records if r.get("entropy") is not None]
                 rows.append(
                     {
                         "model": tag,
@@ -94,7 +104,14 @@ def collect_runs(output_dir: str) -> List[Dict[str, Any]]:
                         "num_examples": int(evaluation.get("num_examples", 0)),
                         "num_correct": int(evaluation.get("num_correct", 0)),
                         "num_unparsed": int(evaluation.get("num_unparsed", 0)),
-                        "loss_records": losses or [],
+                        "grad_norm_median": grad[len(grad) // 2] if grad else 0.0,
+                        "grad_norm_p90": grad[int(len(grad) * 0.9)] if grad else 0.0,
+                        "grad_norm_max": max(grad) if grad else 0.0,
+                        "grad_steps_over_50": sum(1 for g in grad if g > 50),
+                        "final_token_entropy": tok_ent[-1] if tok_ent else 0.0,
+                        "max_token_entropy": max(tok_ent) if tok_ent else 0.0,
+                        "final_token_accuracy": tok_acc[-1] if tok_acc else 0.0,
+                        "loss_records": records,
                     }
                 )
     return rows
@@ -144,6 +161,17 @@ def aggregate(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "peak_vram_gb_max": max(i["peak_vram_gb"] for i in items),
                 "num_examples": items[0]["num_examples"],
                 "num_unparsed_total": sum(i["num_unparsed"] for i in items),
+                "grad_norm_median_mean": statistics.mean([i["grad_norm_median"] for i in items]),
+                "grad_norm_p90_mean": statistics.mean([i["grad_norm_p90"] for i in items]),
+                "grad_norm_max_max": max(i["grad_norm_max"] for i in items),
+                "grad_steps_over_50_total": sum(i["grad_steps_over_50"] for i in items),
+                "final_token_entropy_mean": statistics.mean(
+                    [i["final_token_entropy"] for i in items]
+                ),
+                "max_token_entropy_max": max(i["max_token_entropy"] for i in items),
+                "final_token_accuracy_mean": statistics.mean(
+                    [i["final_token_accuracy"] for i in items]
+                ),
             }
         )
     return summary
@@ -169,6 +197,13 @@ def write_tables(rows: List[Dict[str, Any]], summary: List[Dict[str, Any]], outp
         "num_examples",
         "num_correct",
         "num_unparsed",
+        "grad_norm_median",
+        "grad_norm_p90",
+        "grad_norm_max",
+        "grad_steps_over_50",
+        "final_token_entropy",
+        "max_token_entropy",
+        "final_token_accuracy",
     ]
     save_csv(rows, os.path.join(results_dir, "runs_all.csv"), fieldnames=per_run_fields)
 
@@ -197,6 +232,13 @@ def write_tables(rows: List[Dict[str, Any]], summary: List[Dict[str, Any]], outp
         "peak_vram_gb_max",
         "num_examples",
         "num_unparsed_total",
+        "grad_norm_median_mean",
+        "grad_norm_p90_mean",
+        "grad_norm_max_max",
+        "grad_steps_over_50_total",
+        "final_token_entropy_mean",
+        "max_token_entropy_max",
+        "final_token_accuracy_mean",
     ]
     save_csv(summary, os.path.join(results_dir, "summary_table.csv"), fieldnames=summary_fields)
     save_json(

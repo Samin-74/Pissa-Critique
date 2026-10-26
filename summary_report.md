@@ -221,7 +221,8 @@ barely matters and the default is within noise of uniform PiSSA. On Qwen `q_proj
 
 ### Training evidence
 
-The collapse is visible in the loss curves and gradient norms, not only in the final accuracy.
+The collapse is visible in the loss curves, gradient norms, and token-level metrics, not only
+in the final accuracy.
 
 | Mode (Qwen, seed 42) | Median grad norm | p90 grad norm | Max grad norm | Steps above 50 | Final loss |
 | --- | --- | --- | --- | --- | --- |
@@ -233,6 +234,29 @@ The collapse is visible in the loss curves and gradient norms, not only in the f
 The default direction has a median gradient norm 4.8x higher than any other mode. It is not a
 single spike but chronically elevated gradients throughout training. Both seeds diverge at
 step 150 (seed 42) and step 130 (seed 123) and never recover.
+
+Token-level metrics separate the two entropy directions more sharply than gradients do. The
+trainer logs the mean token entropy and the mean next-token accuracy of the model's own
+predictions, averaged over both seeds:
+
+| Model | Mode | Final token entropy | Peak token entropy | Final token accuracy |
+| --- | --- | --- | --- | --- |
+| Qwen | Uniform LoRA | 0.187 | 0.619 | 0.952 |
+| Qwen | Uniform PiSSA | 0.350 | 3.959 | 0.900 |
+| Qwen | Entropy-PiSSA (default) | **2.334** | 5.638 | **0.487** |
+| Qwen | Entropy-PiSSA (inverted) | 0.338 | 6.197 | 0.904 |
+| Phi | Uniform LoRA | 0.221 | 0.481 | 0.937 |
+| Phi | Uniform PiSSA | 0.285 | 0.634 | 0.917 |
+| Phi | Entropy-PiSSA (default) | 0.276 | 0.619 | 0.920 |
+| Phi | Entropy-PiSSA (inverted) | 0.291 | 1.287 | 0.913 |
+
+On Qwen the default direction ends training with token entropy 2.334 against 0.338 for the
+inverted direction, and next-token accuracy 0.487 against 0.904. The model is not merely
+producing wrong answers, it is uncertain about every token it emits. Both entropy directions
+peak at a similar token entropy during training (5.638 and 6.197), so the difference is not
+that the default direction destabilizes more violently, but that it never recovers while the
+inverted direction does. On Phi all four modes end in a narrow band (0.221 to 0.291), which is
+consistent with the default direction being harmless there.
 
 The generation outputs confirm genuine model failure rather than a parsing artifact. On Qwen
 seed 42 the default direction produced 48 unparseable answers out of 500 and hit the

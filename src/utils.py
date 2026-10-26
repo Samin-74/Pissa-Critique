@@ -113,6 +113,9 @@ class LossRecorder:
                 "loss": loss,
                 "learning_rate": _optional_float(logs.get("learning_rate")),
                 "grad_norm": _optional_float(logs.get("grad_norm")),
+                "entropy": _optional_float(logs.get("entropy")),
+                "mean_token_accuracy": _optional_float(logs.get("mean_token_accuracy")),
+                "num_tokens": _optional_float(logs.get("num_tokens")),
             }
         )
 
