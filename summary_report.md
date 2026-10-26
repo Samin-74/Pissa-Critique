@@ -93,11 +93,11 @@ width confounded (`r = -0.22`), but it is a much flatter signal: its coefficient
 is only 0.021, with all 252 values inside `[0.908, 0.999]`.
 
 That flatness is the central empirical finding of this project. Because
-`effective_rank = exp(H * ln min(m, n))` holds to within 0.2% on every projection, normalized
-entropy is close to a rescaled effective rank. The spread between the widest and narrowest
-matrices is small in entropy terms but large in rank terms, so allocating rank in proportion
-to entropy compresses the dynamic range of the allocation far below what the underlying
-spectra would justify.
+`effective_rank = exp(H * ln min(m, n))` holds exactly by construction (it is the perplexity
+of the singular value distribution), normalized entropy is a rescaled effective rank. The
+spread between the widest and narrowest matrices is small in entropy terms but large in rank
+terms, so allocating rank in proportion to entropy compresses the dynamic range of the
+allocation far below what the underlying spectra would justify.
 
 ## Layer-wise spectral entropy findings
 

@@ -42,10 +42,8 @@ outputs/logs/**/*.log
 *.err
 *.tmp
 *.temp
-_*.py
-_*.log
-_*.cmd
-*.bak
+/scratch_*.py
+/*.bak
 *.orig
 *.rej
 

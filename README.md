@@ -68,12 +68,12 @@ less width-confounded (`r = -0.22`), but it is a much flatter signal: its coeffi
 variation is only 0.021, with all 252 values inside `[0.908, 0.999]`.
 
 That flatness is the central empirical finding of this project. Because
-`effective_rank = exp(H * ln min(m, n))` holds to within 0.2% on every projection, normalized
-entropy is close to a rescaled effective rank, and the spread between the widest and narrowest
-matrices is small in entropy terms but large in rank terms. Allocating rank in proportion to
-entropy therefore compresses the dynamic range of the allocation far below what the underlying
-spectra would justify, which is what the inverted direction corrects. See
-`summary_report.md` for the measured consequences.
+`effective_rank = exp(H * ln min(m, n))` holds exactly by construction (it is the perplexity
+of the singular value distribution), normalized entropy is a rescaled effective rank, and the
+spread between the widest and narrowest matrices is small in entropy terms but large in rank
+terms. Allocating rank in proportion to entropy therefore compresses the dynamic range of the
+allocation far below what the underlying spectra would justify, which is what the inverted
+direction corrects. See `summary_report.md` for the measured consequences.
 
 ## Project layout
 
@@ -99,7 +99,6 @@ spectra would justify, which is what the inverted direction corrects. See
     |-- analysis/           per-model allocation artifacts
     |-- plots/              33 PNG figures at 200 dpi
     |-- results/            comparison CSVs and summary_metrics.json
-    |-- logs/               per-run stdout and stderr
     |-- qwen_seed42/        uniform_lora, uniform_pissa, entropy_pissa, entropy_pissa_inverted
     |-- qwen_seed123/
     |-- phi_seed42/
@@ -107,7 +106,8 @@ spectra would justify, which is what the inverted direction corrects. See
 ```
 
 Each run directory holds `adapter/adapter_config.json`, `loss_curve.{json,csv}`,
-`train_metrics.json`, and `eval_<mode>.{json,csv}`. Adapter weight files are not committed.
+`train_metrics.json`, and `eval_<mode>.{json,csv}`. Adapter weight files and per-run logs are
+not committed; `outputs/logs/` is created when you run the suite.
 
 ## Hardware requirements
 
@@ -192,7 +192,7 @@ python train.py \
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
-| `--mode` | `entropy_pissa` | `uniform_lora`, `uniform_pissa`, `entropy_pissa`, `entropy_pissa_inverted`, or `all` |
+| `--mode` | `entropy_pissa` | `uniform_lora`, `uniform_pissa`, `entropy_pissa`, `entropy_pissa_inverted` (or `inverted`), or `all` |
 | `--uniform_rank` | `16` | Baseline rank and the budget reference |
 | `--lora_alpha` | `32` | Base alpha, scaled per layer to keep `alpha/r` constant |
 | `--lora_dropout` | `0.0` | LoRA dropout, forced to 0 for the PiSSA modes |
