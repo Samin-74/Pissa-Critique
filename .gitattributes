@@ -1,0 +1,11 @@
+# Normalize line endings
+* text=auto eol=lf
+
+# Windows scripts keep CRLF
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary artifacts
+*.png binary
+*.safetensors binary
+*.bin binary

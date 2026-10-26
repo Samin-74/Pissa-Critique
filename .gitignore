@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Model weights and caches
+hf_cache/
+.cache/
+*.bin
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.h5
+*.msgpack
+*.onnx
+
+# Adapter weights and duplicated base tokenizer files (adapter_config.json is kept)
+outputs/**/adapter/*.safetensors
+outputs/**/adapter/*.bin
+outputs/**/adapter/tokenizer.json
+outputs/**/adapter/tokenizer_config.json
+outputs/**/adapter/chat_template.jinja
+outputs/**/adapter/README.md
+
+# Raw execution logs and temp dumps
+outputs/logs/**/*.err
+outputs/logs/**/*.log
+*.log
+*.err
+*.tmp
+*.temp
+_*.py
+_*.log
+_*.cmd
+*.bak
+*.orig
+*.rej
+
+# OS and editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*~
+
+# Environment
+.env
+.env.local

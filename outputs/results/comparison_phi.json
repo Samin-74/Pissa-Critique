@@ -1,0 +1,15 @@
+[
+  {
+    "mode": "entropy_pissa_inverted",
+    "label": "Entropy-PiSSA (inverted)",
+    "trainable_parameters": 25284608,
+    "trainable_pct": 0.6574,
+    "final_loss": 0.491513,
+    "train_seconds": 844.77,
+    "accuracy": 0.68,
+    "accuracy_pct": 68.0,
+    "num_examples": 500,
+    "num_correct": 340,
+    "num_unparsed": 0
+  }
+]

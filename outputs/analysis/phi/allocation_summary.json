@@ -1,0 +1,135 @@
+{
+  "model_tag": "phi",
+  "inverted": false,
+  "target_budget": 25165824,
+  "achieved_budget": 25079808,
+  "budget_error_pct": 0.341796875,
+  "within_tolerance": true,
+  "uniform_rank": 16,
+  "mean_rank": 14.71875,
+  "min_rank": 6,
+  "max_rank": 20,
+  "rank_std": 4.044551697963571,
+  "r_min": 4,
+  "entropy_temperature": 0.5,
+  "high_entropy_more_rank": true,
+  "num_matrices": 128,
+  "entropy_by_block": {
+    "attention": {
+      "count": 64.0,
+      "mean": 0.9735587710314022,
+      "std": 0.012396155829199217,
+      "min": 0.9364872876530381,
+      "max": 0.9894796220837987
+    },
+    "mlp": {
+      "count": 64.0,
+      "mean": 0.9915903324989084,
+      "std": 0.0021644298254894704,
+      "min": 0.9838977629486028,
+      "max": 0.9949688379467767
+    }
+  },
+  "entropy_by_module": {
+    "down_proj": {
+      "count": 32.0,
+      "mean": 0.9902965406627338,
+      "std": 0.001277388109954632,
+      "min": 0.9882554336526168,
+      "max": 0.9927603469884907
+    },
+    "gate_up_proj": {
+      "count": 32.0,
+      "mean": 0.9928841243350829,
+      "std": 0.002095232188751208,
+      "min": 0.9838977629486028,
+      "max": 0.9949688379467767
+    },
+    "o_proj": {
+      "count": 32.0,
+      "mean": 0.9659121326937867,
+      "std": 0.004903109927625445,
+      "min": 0.9516476831747986,
+      "max": 0.972004196672634
+    },
+    "qkv_proj": {
+      "count": 32.0,
+      "mean": 0.9812054093690177,
+      "std": 0.01289754689809733,
+      "min": 0.9364872876530381,
+      "max": 0.9894796220837987
+    }
+  },
+  "rank_by_block": {
+    "attention": {
+      "count": 64.0,
+      "mean": 11.5625,
+      "std": 3.2876425824593523,
+      "min": 6.0,
+      "max": 16.0
+    },
+    "mlp": {
+      "count": 64.0,
+      "mean": 17.875,
+      "std": 1.4086784586980805,
+      "min": 14.0,
+      "max": 20.0
+    }
+  },
+  "rank_by_module": {
+    "down_proj": {
+      "count": 32.0,
+      "mean": 17.125,
+      "std": 0.9921567416492215,
+      "min": 16.0,
+      "max": 18.0
+    },
+    "gate_up_proj": {
+      "count": 32.0,
+      "mean": 18.625,
+      "std": 1.3635890143294642,
+      "min": 14.0,
+      "max": 20.0
+    },
+    "o_proj": {
+      "count": 32.0,
+      "mean": 9.0625,
+      "std": 1.1162856937182344,
+      "min": 6.0,
+      "max": 10.0
+    },
+    "qkv_proj": {
+      "count": 32.0,
+      "mean": 14.0625,
+      "std": 2.80554696093293,
+      "min": 6.0,
+      "max": 16.0
+    }
+  },
+  "budget_by_module": {
+    "down_proj": {
+      "params": 6172672.0,
+      "uniform_params": 5767168.0,
+      "mean_rank": 17.125,
+      "count": 32.0
+    },
+    "gate_up_proj": {
+      "params": 11595776.0,
+      "uniform_params": 9961472.0,
+      "mean_rank": 18.625,
+      "count": 32.0
+    },
+    "o_proj": {
+      "params": 1781760.0,
+      "uniform_params": 3145728.0,
+      "mean_rank": 9.0625,
+      "count": 32.0
+    },
+    "qkv_proj": {
+      "params": 5529600.0,
+      "uniform_params": 6291456.0,
+      "mean_rank": 14.0625,
+      "count": 32.0
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "train_runtime": 774.7357,
+  "train_samples_per_second": 7.745,
+  "train_steps_per_second": 0.968,
+  "total_flos": 2.951970169081037e+16,
+  "train_loss": 0.23476029809315999,
+  "epoch": 2.0,
+  "train_elapsed_seconds": 774.9209980964661,
+  "trainable_parameters": 29933568,
+  "total_parameters": 3115872256,
+  "trainable_ratio_pct": 0.9606802057548793,
+  "mode": "uniform_lora",
+  "config_mode": "uniform_lora",
+  "high_entropy_more_rank": true,
+  "lora_r": 16,
+  "init_lora_weights": "gaussian",
+  "rank_pattern_size": 0,
+  "gpu_memory": {
+    "allocated_gb": 6.002944469451904,
+    "reserved_gb": 13.46484375,
+    "max_allocated_gb": 8.372875690460205
+  }
+}
