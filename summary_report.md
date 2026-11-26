@@ -18,10 +18,11 @@ concentrated) projections, is the best PiSSA variant on both models tested:
 | Phi-3.5-mini-instruct | 65.40 +/- 0.28 | **67.60 +/- 0.57** | +2.20 | 0.50 / 0.22 |
 
 **This advantage is task-specific.** The same adapters were scored, without retraining, on
-ARC-Challenge science questions, where the inverted allocation loses to uniform PiSSA on both
-models (-15.10 Qwen, -1.40 Phi). The paired p values above are per-seed tests over the 500
-shared items, and pooled over all four model/seed groups the GSM8K gap is p = 0.064, so it is
-also not yet statistically significant. Two seeds is too few to settle it.
+ARC-Challenge science questions, where the inverted allocation does not hold up: -15.10 on
+Qwen, and on Phi it swings from -11.80 to +14.60 across the two seeds (mean +1.40). The paired
+p values above are per-seed tests over the 500 shared items, and pooled over all four
+model/seed groups the GSM8K gap is p = 0.064, so it is also not yet statistically significant.
+Two seeds is too few to settle it.
 
 The default direction, which gives more rank to high entropy projections, behaves very
 differently on the two models. On Phi-3.5 it is harmless on GSM8K (66.60 +/- 1.13, slightly
@@ -226,20 +227,21 @@ Paired tests on identical items, inverted versus uniform PiSSA: -16.80 (Qwen see
 directions are inconsistent, which is the point.
 
 The inverted-versus-uniform PiSSA advantage **does not transfer** to this benchmark. On GSM8K
-it is +1.90 (Qwen) and +2.20 (Phi); on ARC it is -15.10 (Qwen) and -1.40 (Phi). The GSM8K
-gain is therefore a task-specific effect, not a property of the allocation. Uniform LoRA is
-again the best adapter on both models.
+it is +1.90 (Qwen) and +2.20 (Phi); on ARC it is -15.10 (Qwen) and +1.40 (Phi), and the Phi
+figure hides a flip from -11.80 to +14.60 across seeds. The GSM8K gain is therefore a
+task-specific effect, not a property of the allocation. Uniform LoRA is again the best adapter
+on both models.
 
 Seed variance is far larger here than on GSM8K. Uniform PiSSA on Qwen spans 39.60 to 69.60,
-and inverted spans 26.20 to 52.80, against a GSM8K spread of under 1 point. Two seeds cannot
-support a claim on this benchmark.
+and inverted spans 26.20 to 52.80, against a GSM8K spread of at most 1.40 points. Two seeds
+cannot support a claim on this benchmark.
 
 Two further observations belong in any honest reading:
 
-- Both base models beat every fine-tuned variant on ARC (Qwen 73.20 vs 79.40 best adapter,
-  Phi 89.60 vs 85.60 best adapter), and both also beat them on GSM8K (82.60 and 84.20). The
-  3000-example, 2-epoch budget is the likely cause, and it means the fine-tuning is not
-  improving either benchmark in absolute terms.
+- The base model beats every fine-tuned variant on GSM8K (Qwen 82.60 vs 65.70 best adapter,
+  Phi 84.20 vs 76.10) and on ARC for Phi (89.60 vs 85.60). ARC Qwen is the exception, where
+  uniform LoRA lifts 73.20 to 79.40. Three of four model/benchmark pairs lose accuracy to
+  fine-tuning, so the 3000-example, 2-epoch budget limits what any mode comparison can claim.
 - Answer-format compliance diverges sharply by mode. On ARC, uniform LoRA replies in the
   expected option format 96.5-98.2% of the time, while entropy-inverted does so only 54.9%
   (Qwen) and 86.4% (Phi), and the Qwen default direction does so 1.6% of the time. Those
@@ -389,6 +391,18 @@ Aggregate plots and tables:
 python aggregate.py --output_dir outputs
 ```
 
+Re-score the trained adapters on the second benchmark (no retraining), then rebuild the
+cross-benchmark tables:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File run_extra_benchmarks.ps1 `
+    -Model "Qwen/Qwen2.5-3B-Instruct" -ModelTag qwen -Seeds "42,123" -Benchmarks "arc_challenge"
+```
+
+```bash
+python report_benchmarks.py --output_dir outputs
+```
+
 A single run:
 
 ```bash
@@ -441,13 +455,15 @@ python train.py \
   consistent across both models and both seeds, but the sample is small and a paired test
   over the 500 GSM8K items gives p = 0.064 pooled, so the gap is not yet significant.
 - The inverted-versus-uniform advantage does **not** transfer to ARC-Challenge, where it is
-  -15.10 on Qwen and -1.40 on Phi. The GSM8K result is task-specific. Any claim about the
-  allocation as a general improvement would be wrong on this evidence.
+  -15.10 on Qwen and +1.40 on Phi, with Phi flipping sign across seeds (-11.80 and +14.60).
+  The GSM8K result is task-specific. Any claim about the allocation as a general improvement
+  would be wrong on this evidence.
 - ARC-Challenge seed variance is large (uniform PiSSA on Qwen spans 39.60 to 69.60), so two
   seeds cannot support a claim on that benchmark. More seeds are the first thing to add.
-- Both base models score above every fine-tuned variant on both benchmarks (GSM8K 82.60 /
-  84.20, ARC 73.20 / 89.60). At 3000 examples and 2 epochs the fine-tuning is not improving
-  either task in absolute terms, which limits what any mode comparison can claim. A longer or
+- The base model beats every fine-tuned variant on GSM8K (82.60 / 84.20 vs best adapter 65.70
+  / 76.10) and on ARC for Phi (89.60 vs 85.60); ARC Qwen is the exception, where uniform LoRA
+  lifts 73.20 to 79.40. At 3000 examples and 2 epochs the fine-tuning is mostly not improving
+  these tasks in absolute terms, which limits what any mode comparison can claim. A longer or
   larger training run is needed before the allocation effect can be separated from the
   fine-tuning effect.
 - The explanation for the Qwen collapse is post-hoc. It is supported by the measured

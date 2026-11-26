@@ -24,10 +24,11 @@ The default direction scores 1.50 +/- 0.71 on Qwen2.5 (training diverges on both
 interacting with the mix of module widths in each model.
 
 **The GSM8K advantage does not generalize.** The same adapters, scored without retraining on
-ARC-Challenge science questions, show the inverted allocation *below* uniform PiSSA on both
-models (-15.10 Qwen, -1.40 Phi, paired p < 0.001). Both base models also outscore every
-fine-tuned variant on both benchmarks, so at 3000 examples the fine-tuning is not improving
-either task in absolute terms. `summary_report.md` has the full analysis and the caveats.
+ARC-Challenge science questions, show no replicable advantage for the inverted allocation:
+-15.10 on Qwen, and on Phi it swings from -11.80 to +14.60 across the two seeds. Both base
+models also outscore every fine-tuned variant on both benchmarks, so at 3000 examples the
+fine-tuning is not improving either task in absolute terms. `summary_report.md` has the full
+analysis and the caveats.
 
 ## Method
 
@@ -121,6 +122,24 @@ Each run directory holds `adapter/adapter_config.json`, `loss_curve.{json,csv}`,
 committed; `outputs/logs/` is created when you run the suite, and `outputs/results/` holds
 only the aggregated tables.
 
+### What works in a fresh clone
+
+The repository ships 219 files (73 MB) with every result, plot, and allocation artifact, so
+the numbers can be inspected and the tables rebuilt without a GPU.
+
+| Task | Fresh clone | Notes |
+| --- | --- | --- |
+| Inspect results and read plots | yes | `outputs/results/`, `outputs/plots/`, `outputs/analysis/` |
+| Rebuild all tables and figures | yes | `python aggregate.py` and `python report_benchmarks.py`, CPU only, about 30 s |
+| Run the test suite | yes | `python test_allocator.py`, CPU only |
+| Score adapters with `--skip_train` | no | needs `adapter_model.safetensors`, which is gitignored |
+| Train from scratch | yes | needs a GPU and the base weights from the Hub |
+
+`--skip_train` reads a saved adapter, and only `adapter_config.json` is committed, not the
+weights. The scorer exits with an explicit message rather than a stack trace when they are
+absent. To reproduce the evaluation end to end, retrain first: `run_extra_benchmarks.ps1`
+then re-scores the adapters it produced.
+
 ## Hardware requirements
 
 A single 16 GB GPU is enough for both models at the reported settings. The project was
@@ -150,6 +169,14 @@ python -m venv .venv
 source .venv/bin/activate     # Linux or macOS
 pip install -r requirements.txt
 ```
+
+`transformers>=5.0.0` and `trl>=1.0.0` are hard requirements, not preferences. The trainer
+uses `SFTTrainer(processing_class=...)` and `SFTConfig(warmup_steps=...)` only, because trl 1
+removed the older `tokenizer` and `warmup_ratio` arguments. Installing the previously
+documented `transformers>=4.40` / `trl>=0.8.6` produces a `TypeError` at trainer construction.
+
+Tested on Windows 11, Python 3.12, torch 2.14.1+cu132, transformers 5.20.2, peft 0.21.2,
+trl 1.16.0, on an RTX 4080 Super (16 GB).
 
 Set `HF_HOME` to control where base model weights are cached. The `launch_*.cmd` wrappers
 default it to `hf_cache/` next to the repository if it is unset.
@@ -346,13 +373,15 @@ zero-shot floor that makes the absolute numbers interpretable.
 Three things this benchmark shows that GSM8K alone could not:
 
 1. **The PiSSA ranking does not transfer.** On GSM8K the inverted allocation beats uniform
-   PiSSA on both models (+1.90 Qwen, +2.20 Phi). On ARC it loses on both (-15.10 Qwen,
-   -1.40 Phi), and the paired tests are significant in both directions. The GSM8K advantage
-   is therefore task-specific, not a general property of the allocation.
-2. **Fine-tuning degrades out-of-domain reasoning.** Both base models score above every
-   fine-tuned variant on ARC (Qwen 73.20 vs 79.40 best adapter; Phi 89.60 vs 85.60 best
-   adapter). The GSM8K adapter buys math accuracy at the cost of science reasoning, which is
-   ordinary catastrophic forgetting and worth stating plainly.
+   PiSSA on both models (+1.90 Qwen, +2.20 Phi). On ARC the Qwen gap reverses (-15.10) and the
+   Phi gap is inconsistent across seeds (-11.80 and +14.60, mean +1.40), so the paired tests
+   are significant in opposite directions at the seed level. The GSM8K advantage is therefore
+   task-specific, not a general property of the allocation.
+2. **Fine-tuning does not improve these benchmarks.** The base model beats every fine-tuned
+   variant on GSM8K (Qwen 82.60 vs 65.70 best adapter; Phi 84.20 vs 76.10) and on ARC for Phi
+   (89.60 vs 85.60). ARC Qwen is the one exception, where uniform LoRA lifts 73.20 to 79.40.
+   Three of four model/benchmark pairs therefore lose accuracy to fine-tuning, which bounds
+   what any mode comparison here can claim.
 3. **Seed variance is much larger than on GSM8K.** Uniform PiSSA on Qwen ranges 39.60 to
    69.60 across seeds, and entropy-inverted ranges 26.20 to 52.80. Two seeds cannot support a
    claim on this benchmark; the GSM8K deltas are stable by comparison.

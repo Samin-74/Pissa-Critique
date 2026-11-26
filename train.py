@@ -917,12 +917,34 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
+def adapter_weight_files(adapter_dir: str) -> List[str]:
+    return [
+        name
+        for name in os.listdir(adapter_dir)
+        if name.endswith((".safetensors", ".bin"))
+    ] if os.path.isdir(adapter_dir) else []
+
+
+def require_adapter_weights(adapter_dir: str) -> None:
+    # Adapter configs ship with the repo but weights do not, so check before loading
+    if not os.path.isdir(adapter_dir):
+        raise SystemExit(
+            f"No adapter directory at {adapter_dir}.\n"
+            f"Train it first: python train.py --mode <mode> --run_name <group>/<mode>"
+        )
+    if not adapter_weight_files(adapter_dir):
+        raise SystemExit(
+            f"Adapter weights are missing from {adapter_dir}.\n"
+            f"Only adapter_config.json is committed, so --skip_train cannot run on a "
+            f"fresh clone.\nRetrain this run first, then re-score it."
+        )
+
+
 def load_trained_adapter(args: argparse.Namespace, label: str):
     from peft import PeftModel
 
     adapter_dir = os.path.join(run_dir_for(args, label), "adapter")
-    if not os.path.isdir(adapter_dir):
-        raise FileNotFoundError(f"adapter not found: {adapter_dir}")
+    require_adapter_weights(adapter_dir)
     model = load_base_model(args)
     model = PeftModel.from_pretrained(model, adapter_dir)
     model.eval()
