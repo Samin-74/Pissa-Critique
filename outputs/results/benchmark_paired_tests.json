@@ -1,0 +1,98 @@
+[
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "group": "phi_seed123",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 32,
+    "treatment_only_correct": 105,
+    "delta_pct": 14.6,
+    "p_value": 2.8763036275015734e-10
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "group": "phi_seed42",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 115,
+    "treatment_only_correct": 56,
+    "delta_pct": -11.8,
+    "p_value": 7.551730187471967e-06
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "group": "qwen_seed123",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 119,
+    "treatment_only_correct": 52,
+    "delta_pct": -13.4,
+    "p_value": 3.207079639264286e-07
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "group": "qwen_seed42",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 119,
+    "treatment_only_correct": 35,
+    "delta_pct": -16.8,
+    "p_value": 6.593072789195153e-12
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "group": "phi_seed123",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 48,
+    "treatment_only_correct": 62,
+    "delta_pct": 2.8,
+    "p_value": 0.21497653774329686
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "group": "phi_seed42",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 49,
+    "treatment_only_correct": 57,
+    "delta_pct": 1.6,
+    "p_value": 0.49675439302894575
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "group": "qwen_seed123",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 62,
+    "treatment_only_correct": 72,
+    "delta_pct": 2.0,
+    "p_value": 0.4369905490859722
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "group": "qwen_seed42",
+    "baseline": "uniform_pissa",
+    "treatment": "entropy_pissa_inverted",
+    "n_items": 500,
+    "baseline_only_correct": 53,
+    "treatment_only_correct": 62,
+    "delta_pct": 1.8,
+    "p_value": 0.45581402955519157
+  }
+]

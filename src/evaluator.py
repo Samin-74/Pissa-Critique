@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 
+from .benchmarks import resolve_benchmark
 from .utils import (
     answers_match,
     build_prompt,
@@ -20,7 +21,6 @@ from .utils import (
 
 GSM8K_REFERENCE_PATTERN = re.compile(r"####\s*(-?[\d,]+\.?\d*)")
 
-
 @dataclass
 class EvalRecord:
     index: int
@@ -31,6 +31,7 @@ class EvalRecord:
     correct: bool
     prompt_tokens: int = 0
     generated_tokens: int = 0
+    meta: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -246,16 +247,16 @@ def evaluate_gsm8k(
     )
     elapsed = time.time() - start
 
+    spec = resolve_benchmark("gsm8k")
     records: List[EvalRecord] = []
     correct = 0
     unparsed = 0
     for idx, (question, reference, generation) in enumerate(
         zip(questions, references, generations)
     ):
-        prediction = extract_final_answer(generation["raw_output"])
+        prediction, is_correct = spec.judge(generation["raw_output"], reference or "")
         if prediction is None:
             unparsed += 1
-        is_correct = answers_match(prediction, reference)
         correct += int(is_correct)
         records.append(
             EvalRecord(
@@ -267,6 +268,7 @@ def evaluate_gsm8k(
                 correct=is_correct,
                 prompt_tokens=generation["prompt_tokens"],
                 generated_tokens=generation["generated_tokens"],
+                meta={"subtask": "gsm8k"},
             )
         )
 
@@ -284,11 +286,81 @@ def evaluate_gsm8k(
     )
 
 
-def save_eval_result(result: EvalResult, output_dir: str) -> Dict[str, str]:
+def evaluate_benchmark(
+    model: torch.nn.Module,
+    tokenizer,
+    examples: Sequence[Any],
+    mode: str,
+    spec,
+    max_new_tokens: int = 512,
+    batch_size: int = 8,
+    system_prompt: Optional[str] = None,
+    progress_every: int = 20,
+) -> EvalResult:
+    # Non-GSM8K benches answer in their own format, so scoring is delegated to the spec
+    start = time.time()
+    generations = generate_predictions(
+        model=model,
+        tokenizer=tokenizer,
+        questions=[example.question for example in examples],
+        max_new_tokens=max_new_tokens,
+        batch_size=batch_size,
+        system_prompt=system_prompt,
+        progress_every=progress_every,
+    )
+    elapsed = time.time() - start
+
+    records: List[EvalRecord] = []
+    correct = 0
+    unparsed = 0
+    for idx, (example, generation) in enumerate(zip(examples, generations)):
+        prediction, is_correct = spec.judge(generation["raw_output"], example.reference)
+        if prediction is None:
+            unparsed += 1
+        correct += int(is_correct)
+        records.append(
+            EvalRecord(
+                index=idx,
+                question=example.question,
+                reference=example.reference,
+                prediction=prediction,
+                raw_output=generation["raw_output"],
+                correct=is_correct,
+                prompt_tokens=generation["prompt_tokens"],
+                generated_tokens=generation["generated_tokens"],
+                meta=dict(example.meta or {}),
+            )
+        )
+
+    total = max(len(records), 1)
+    return EvalResult(
+        mode=mode,
+        accuracy=correct / total,
+        num_examples=len(records),
+        num_correct=correct,
+        num_unparsed=unparsed,
+        records=records,
+        elapsed_seconds=elapsed,
+        max_new_tokens=max_new_tokens,
+        batch_size=batch_size,
+    )
+
+
+def save_eval_result(
+    result: EvalResult,
+    output_dir: str,
+    benchmark: str = "gsm8k",
+    summary: Optional[Dict[str, Any]] = None,
+) -> Dict[str, str]:
     ensure_dir(output_dir)
-    json_path = os.path.join(output_dir, f"eval_{result.mode}.json")
-    csv_path = os.path.join(output_dir, f"eval_{result.mode}.csv")
-    save_json(result.to_dict(include_records=True), json_path)
+    suffix = "" if benchmark in ("", "gsm8k") else f"_{benchmark}"
+    json_path = os.path.join(output_dir, f"eval_{result.mode}{suffix}.json")
+    csv_path = os.path.join(output_dir, f"eval_{result.mode}{suffix}.csv")
+    payload = result.to_dict(include_records=True)
+    payload["benchmark"] = benchmark
+    if summary is not None:
+        payload["summary"] = summary
+    save_json(payload, json_path)
     save_csv(
         [
             {
@@ -297,6 +369,7 @@ def save_eval_result(result: EvalResult, output_dir: str) -> Dict[str, str]:
                 "prediction": r.prediction,
                 "correct": r.correct,
                 "generated_tokens": r.generated_tokens,
+                "subtask": (r.meta or {}).get("subtask", ""),
                 "question": r.question.replace("\n", " "),
                 "raw_output": r.raw_output.replace("\n", " "),
             }
@@ -309,6 +382,7 @@ def save_eval_result(result: EvalResult, output_dir: str) -> Dict[str, str]:
             "prediction",
             "correct",
             "generated_tokens",
+            "subtask",
             "question",
             "raw_output",
         ],

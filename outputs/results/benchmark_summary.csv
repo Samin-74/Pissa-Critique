@@ -1,0 +1,21 @@
+benchmark,model,mode,label,n_seeds,accuracy_pct_mean,accuracy_pct_std,accuracy_pct_among_parsed_mean,num_examples,unparsed_pct
+arc_challenge,phi,base_model,Base model (no fine-tuning),1,89.6,0.0,89.9598,500,0.4
+arc_challenge,phi,entropy_pissa,Entropy-PiSSA (high entropy first),2,74.4,3.9598,82.0317,1000,9.3
+arc_challenge,phi,entropy_pissa_inverted,Entropy-PiSSA (inverted),2,67.8,11.8794,78.2133,1000,13.6
+arc_challenge,phi,uniform_lora,Uniform LoRA (r=16),2,85.6,0.2828,88.706,1000,3.5
+arc_challenge,phi,uniform_pissa,Uniform PiSSA (r=16),2,66.4,6.7882,79.4678,1000,16.4
+arc_challenge,qwen,base_model,Base model (no fine-tuning),1,73.2,0.0,78.8793,500,7.2
+arc_challenge,qwen,entropy_pissa,Entropy-PiSSA (high entropy first),2,0.0,0.0,0.0,1000,98.4
+arc_challenge,qwen,entropy_pissa_inverted,Entropy-PiSSA (inverted),2,39.5,18.809,70.8779,1000,45.1
+arc_challenge,qwen,uniform_lora,Uniform LoRA (r=16),2,79.4,0.5657,80.8554,1000,1.8
+arc_challenge,qwen,uniform_pissa,Uniform PiSSA (r=16),2,54.6,21.2132,73.0574,1000,25.9
+gsm8k,phi,base_model,Base model (no fine-tuning),1,84.2,0.0,84.2,500,0.0
+gsm8k,phi,entropy_pissa,Entropy-PiSSA (high entropy first),2,66.6,1.1314,66.6,1000,0.0
+gsm8k,phi,entropy_pissa_inverted,Entropy-PiSSA (inverted),2,67.6,0.5657,67.6,1000,0.0
+gsm8k,phi,uniform_lora,Uniform LoRA (r=16),2,76.1,0.4243,76.1,1000,0.0
+gsm8k,phi,uniform_pissa,Uniform PiSSA (r=16),2,65.4,0.2828,65.4,1000,0.0
+gsm8k,qwen,base_model,Base model (no fine-tuning),1,82.6,0.0,82.6,500,0.0
+gsm8k,qwen,entropy_pissa,Entropy-PiSSA (high entropy first),2,1.5,0.7071,1.6072,1000,4.9
+gsm8k,qwen,entropy_pissa_inverted,Entropy-PiSSA (inverted),2,63.0,0.5657,63.0,1000,0.0
+gsm8k,qwen,uniform_lora,Uniform LoRA (r=16),2,65.7,0.9899,65.7,1000,0.0
+gsm8k,qwen,uniform_pissa,Uniform PiSSA (r=16),2,61.1,0.7071,61.1,1000,0.0

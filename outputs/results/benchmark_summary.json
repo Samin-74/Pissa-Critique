@@ -1,0 +1,394 @@
+[
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "mode": "base_model",
+    "label": "Base model (no fine-tuning)",
+    "n_seeds": 1,
+    "seeds": [
+      0
+    ],
+    "accuracy_pct_mean": 89.60000000000001,
+    "accuracy_pct_std": 0.0,
+    "accuracy_pct_values": [
+      89.60000000000001
+    ],
+    "accuracy_pct_among_parsed_mean": 89.95983935742971,
+    "num_examples": 500,
+    "unparsed_pct": 0.4
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "mode": "entropy_pissa",
+    "label": "Entropy-PiSSA (high entropy first)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 74.4,
+    "accuracy_pct_std": 3.959797974644672,
+    "accuracy_pct_values": [
+      71.6,
+      77.2
+    ],
+    "accuracy_pct_among_parsed_mean": 82.0316913068038,
+    "num_examples": 1000,
+    "unparsed_pct": 9.3
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "mode": "entropy_pissa_inverted",
+    "label": "Entropy-PiSSA (inverted)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 67.8,
+    "accuracy_pct_std": 11.879393923934002,
+    "accuracy_pct_values": [
+      76.2,
+      59.4
+    ],
+    "accuracy_pct_among_parsed_mean": 78.21327359585436,
+    "num_examples": 1000,
+    "unparsed_pct": 13.6
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "mode": "uniform_lora",
+    "label": "Uniform LoRA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 85.6,
+    "accuracy_pct_std": 0.282842712474623,
+    "accuracy_pct_values": [
+      85.8,
+      85.39999999999999
+    ],
+    "accuracy_pct_among_parsed_mean": 88.705970790378,
+    "num_examples": 1000,
+    "unparsed_pct": 3.5
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "phi",
+    "mode": "uniform_pissa",
+    "label": "Uniform PiSSA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 66.4,
+    "accuracy_pct_std": 6.788225099390857,
+    "accuracy_pct_values": [
+      61.6,
+      71.2
+    ],
+    "accuracy_pct_among_parsed_mean": 79.46784922394679,
+    "num_examples": 1000,
+    "unparsed_pct": 16.4
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "mode": "base_model",
+    "label": "Base model (no fine-tuning)",
+    "n_seeds": 1,
+    "seeds": [
+      0
+    ],
+    "accuracy_pct_mean": 73.2,
+    "accuracy_pct_std": 0.0,
+    "accuracy_pct_values": [
+      73.2
+    ],
+    "accuracy_pct_among_parsed_mean": 78.87931034482759,
+    "num_examples": 500,
+    "unparsed_pct": 7.2
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "mode": "entropy_pissa",
+    "label": "Entropy-PiSSA (high entropy first)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 0.0,
+    "accuracy_pct_std": 0.0,
+    "accuracy_pct_values": [
+      0.0,
+      0.0
+    ],
+    "accuracy_pct_among_parsed_mean": 0.0,
+    "num_examples": 1000,
+    "unparsed_pct": 98.4
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "mode": "entropy_pissa_inverted",
+    "label": "Entropy-PiSSA (inverted)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 39.5,
+    "accuracy_pct_std": 18.809040379562166,
+    "accuracy_pct_values": [
+      26.200000000000003,
+      52.800000000000004
+    ],
+    "accuracy_pct_among_parsed_mean": 70.87787918296394,
+    "num_examples": 1000,
+    "unparsed_pct": 45.1
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "mode": "uniform_lora",
+    "label": "Uniform LoRA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 79.4,
+    "accuracy_pct_std": 0.565685424949246,
+    "accuracy_pct_values": [
+      79.80000000000001,
+      79.0
+    ],
+    "accuracy_pct_among_parsed_mean": 80.85539714867618,
+    "num_examples": 1000,
+    "unparsed_pct": 1.8
+  },
+  {
+    "benchmark": "arc_challenge",
+    "model": "qwen",
+    "mode": "uniform_pissa",
+    "label": "Uniform PiSSA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 54.599999999999994,
+    "accuracy_pct_std": 21.21320343559642,
+    "accuracy_pct_values": [
+      39.6,
+      69.6
+    ],
+    "accuracy_pct_among_parsed_mean": 73.0574036825004,
+    "num_examples": 1000,
+    "unparsed_pct": 25.9
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "mode": "base_model",
+    "label": "Base model (no fine-tuning)",
+    "n_seeds": 1,
+    "seeds": [
+      0
+    ],
+    "accuracy_pct_mean": 84.2,
+    "accuracy_pct_std": 0.0,
+    "accuracy_pct_values": [
+      84.2
+    ],
+    "accuracy_pct_among_parsed_mean": 84.2,
+    "num_examples": 500,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "mode": "entropy_pissa",
+    "label": "Entropy-PiSSA (high entropy first)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 66.6,
+    "accuracy_pct_std": 1.131370849898482,
+    "accuracy_pct_values": [
+      67.4,
+      65.8
+    ],
+    "accuracy_pct_among_parsed_mean": 66.6,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "mode": "entropy_pissa_inverted",
+    "label": "Entropy-PiSSA (inverted)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 67.6,
+    "accuracy_pct_std": 0.565685424949236,
+    "accuracy_pct_values": [
+      68.0,
+      67.2
+    ],
+    "accuracy_pct_among_parsed_mean": 67.6,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "mode": "uniform_lora",
+    "label": "Uniform LoRA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 76.1,
+    "accuracy_pct_std": 0.42426406871193456,
+    "accuracy_pct_values": [
+      75.8,
+      76.4
+    ],
+    "accuracy_pct_among_parsed_mean": 76.1,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "phi",
+    "mode": "uniform_pissa",
+    "label": "Uniform PiSSA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 65.4,
+    "accuracy_pct_std": 0.282842712474623,
+    "accuracy_pct_values": [
+      65.2,
+      65.60000000000001
+    ],
+    "accuracy_pct_among_parsed_mean": 65.4,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "mode": "base_model",
+    "label": "Base model (no fine-tuning)",
+    "n_seeds": 1,
+    "seeds": [
+      0
+    ],
+    "accuracy_pct_mean": 82.6,
+    "accuracy_pct_std": 0.0,
+    "accuracy_pct_values": [
+      82.6
+    ],
+    "accuracy_pct_among_parsed_mean": 82.6,
+    "num_examples": 500,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "mode": "entropy_pissa",
+    "label": "Entropy-PiSSA (high entropy first)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 1.5,
+    "accuracy_pct_std": 0.7071067811865476,
+    "accuracy_pct_values": [
+      1.0,
+      2.0
+    ],
+    "accuracy_pct_among_parsed_mean": 1.6071966942735028,
+    "num_examples": 1000,
+    "unparsed_pct": 4.9
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "mode": "entropy_pissa_inverted",
+    "label": "Entropy-PiSSA (inverted)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 63.0,
+    "accuracy_pct_std": 0.565685424949236,
+    "accuracy_pct_values": [
+      62.6,
+      63.4
+    ],
+    "accuracy_pct_among_parsed_mean": 63.0,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "mode": "uniform_lora",
+    "label": "Uniform LoRA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 65.7,
+    "accuracy_pct_std": 0.9899494936611706,
+    "accuracy_pct_values": [
+      66.4,
+      65.0
+    ],
+    "accuracy_pct_among_parsed_mean": 65.7,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  },
+  {
+    "benchmark": "gsm8k",
+    "model": "qwen",
+    "mode": "uniform_pissa",
+    "label": "Uniform PiSSA (r=16)",
+    "n_seeds": 2,
+    "seeds": [
+      42,
+      123
+    ],
+    "accuracy_pct_mean": 61.1,
+    "accuracy_pct_std": 0.7071067811865476,
+    "accuracy_pct_values": [
+      60.6,
+      61.6
+    ],
+    "accuracy_pct_among_parsed_mean": 61.1,
+    "num_examples": 1000,
+    "unparsed_pct": 0.0
+  }
+]

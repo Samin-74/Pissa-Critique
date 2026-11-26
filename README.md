@@ -82,9 +82,11 @@ direction corrects. See `summary_report.md` for the measured consequences.
 |-- train.py                four-mode training and evaluation pipeline
 |-- analyze.py              standalone spectral analysis and allocation
 |-- aggregate.py            cross-run tables and plots
-|-- test_allocator.py       23 allocator checks
+|-- report_benchmarks.py    cross-benchmark tables and paired tests
+|-- test_allocator.py       23 allocator checks + benchmark scorer checks
 |-- run_all.ps1             full 16-run suite
 |-- run_suite.ps1           one model and seed group
+|-- run_extra_benchmarks.ps1  score trained adapters on extra benchmarks
 |-- launch_all.cmd          Windows wrapper for run_all.ps1
 |-- launch_suite.cmd        Windows wrapper for run_suite.ps1
 |-- requirements.txt
@@ -93,7 +95,8 @@ direction corrects. See `summary_report.md` for the measured consequences.
 |-- src/
 |   |-- __init__.py
 |   |-- rank_allocator.py   CPU SVD, spectral entropy, budget allocation, PEFT patterns
-|   |-- evaluator.py        batched greedy GSM8K generation and exact-match scoring
+|   |-- benchmarks.py       benchmark registry, loaders, and per-format answer scoring
+|   |-- evaluator.py        batched greedy generation and benchmark scoring
 |   `-- utils.py            prompt construction, answer extraction, loss recording, plots
 `-- outputs/
     |-- analysis/           per-model allocation artifacts
@@ -165,6 +168,83 @@ python aggregate.py --output_dir outputs
 
 The suite is resumable: a run that already produced `eval_<mode>.json` is skipped.
 
+## Additional benchmarks (no retraining)
+
+GSM8K is a single task family. Because the rank allocation is derived from the base model
+weights only, it is identical for every training set, so a second training set would test the
+same allocation. What changes the claim is a benchmark that measures a *different* kind of
+reasoning. Both non-math benchmarks below are scored from the adapters already on disk.
+
+| Benchmark | Task | Format | Why it is included |
+| --- | --- | --- | --- |
+| `gsm8k` | grade-school math | `#### <number>` | the original result |
+| `bbh` | BIG-Bench Hard, 24 non-arithmetic subtasks | letter / yes-no / free text | logic, tracking, causal, temporal, and linguistic reasoning with no arithmetic shortcut |
+| `arc_challenge` | ARC science questions | 4-way choice | science reasoning, disjoint vocabulary from GSM8K |
+
+Score the existing adapters (no training step):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File run_extra_benchmarks.ps1 `
+    -Model "Qwen/Qwen2.5-3B-Instruct" -ModelTag qwen -Seeds 42,123 `
+    -Benchmarks "bbh,arc_challenge"
+```
+
+Or score one adapter directly, reusing its saved rank pattern:
+
+```bash
+python train.py \
+    --mode entropy_pissa_inverted \
+    --model_name Qwen/Qwen2.5-3B-Instruct \
+    --run_name qwen_seed42/entropy_pissa_inverted \
+    --output_dir outputs \
+    --eval_benchmarks bbh,arc_challenge \
+    --eval_limit 500 --eval_batch_size 8 --max_new_tokens 512 \
+    --seed 42 --skip_train --skip_plots
+```
+
+`--skip_train` skips both the SVD allocation and the training split, so only the adapter and
+the benchmark load. Extra benchmarks are written next to the GSM8K artifact with a suffix
+(`eval_<mode>_bbh.json`), so existing results are never overwritten.
+
+Then build the cross-benchmark tables and paired tests:
+
+```bash
+python report_benchmarks.py --output_dir outputs
+```
+
+Paired tests compare two modes on the *same items* (exact binomial over discordant pairs),
+which is much more sensitive than comparing seed means.
+
+### Base-model reference
+
+An absolute accuracy on a new benchmark is only interpretable against the un-finetuned model:
+without it there is no way to tell whether GSM8K training helped or hurt science reasoning.
+`--base_model_reference` scores the raw weights and writes to `outputs/base_reference_<family>/`,
+so each model keeps its own reference and the four-mode comparison table is left untouched.
+
+```bash
+python train.py \
+    --mode uniform_lora \
+    --model_name Qwen/Qwen2.5-3B-Instruct \
+    --run_name base_reference \
+    --output_dir outputs \
+    --eval_benchmarks arc_challenge \
+    --eval_limit 500 --eval_batch_size 8 --max_new_tokens 512 \
+    --seed 42 --skip_train --skip_plots --base_model_reference
+```
+
+The driver script runs this automatically when the reference artifact is missing.
+
+### Format collapse
+
+These models were trained to answer with `#### <number>`, and they carry that habit to other
+benchmarks: on ARC they often emit `#### 3` instead of `(C)`. The scorers accept the native
+option formats and the explicit `The answer is ...` phrasing, so a reply that names the option
+in prose is still scored. A reply that only produces a bare number without naming the option
+is scored as wrong, and it is reported in `num_unparsed`. `num_unparsed` is therefore a real
+finding about instruction-following transfer, not just a parsing artifact, and it is printed
+next to every accuracy.
+
 A single run without a driver script:
 
 ```bash
@@ -205,6 +285,9 @@ python train.py \
 | `--per_device_batch_size` | `2` | Micro batch size |
 | `--gradient_accumulation_steps` | `4` | Effective batch is 8 |
 | `--eval_limit` | `200` | GSM8K test examples to score |
+| `--eval_benchmarks` | `gsm8k` | Comma separated: `gsm8k`, `bbh`, `arc_challenge`, or `all` |
+| `--bbh_max_per_subtask` | `100` | Cap per BIG-Bench Hard subtask so the aggregate stays balanced |
+| `--base_model_reference` | off | Also score the un-finetuned base model, the zero-shot floor for absolute scores |
 | `--cpu_only` | off | Force float32 on CPU for debugging |
 
 The reported experiments override the batch defaults to `--per_device_batch_size 4
@@ -231,6 +314,44 @@ Uniform LoRA remains the strongest single configuration on both models. At `r=16
 examples the zero-initialized adapter is easier to optimize than PiSSA's non-zero
 initialization. The comparison of interest here is between PiSSA variants, which share the
 same initialization and differ only in rank allocation.
+
+### ARC-Challenge (second benchmark, no retraining)
+
+Same adapters, scored on ARC-Challenge science questions. 500 items per run, greedy decoding,
+mean +/- std over seeds 42 and 123. The base row is the un-finetuned model, which is the
+zero-shot floor that makes the absolute numbers interpretable.
+
+| Model | Mode | ARC accuracy |
+| --- | --- | --- |
+| Qwen2.5-3B-Instruct | Base model (no fine-tuning) | 73.20 |
+| Qwen2.5-3B-Instruct | Uniform LoRA | **79.40 +/- 0.57** |
+| Qwen2.5-3B-Instruct | Uniform PiSSA | 54.60 +/- 21.21 |
+| Qwen2.5-3B-Instruct | Entropy-PiSSA (default) | 0.00 +/- 0.00 |
+| Qwen2.5-3B-Instruct | Entropy-PiSSA (inverted) | 39.50 +/- 18.81 |
+| Phi-3.5-mini-instruct | Base model (no fine-tuning) | 89.60 |
+| Phi-3.5-mini-instruct | Uniform LoRA | 85.60 +/- 0.28 |
+| Phi-3.5-mini-instruct | Uniform PiSSA | 66.40 +/- 6.79 |
+| Phi-3.5-mini-instruct | Entropy-PiSSA (default) | 74.40 +/- 3.96 |
+| Phi-3.5-mini-instruct | Entropy-PiSSA (inverted) | 67.80 +/- 11.88 |
+
+Three things this benchmark shows that GSM8K alone could not:
+
+1. **The PiSSA ranking does not transfer.** On GSM8K the inverted allocation beats uniform
+   PiSSA on both models (+1.90 Qwen, +2.20 Phi). On ARC it loses on both (-15.10 Qwen,
+   -1.40 Phi), and the paired tests are significant in both directions. The GSM8K advantage
+   is therefore task-specific, not a general property of the allocation.
+2. **Fine-tuning degrades out-of-domain reasoning.** Both base models score above every
+   fine-tuned variant on ARC (Qwen 73.20 vs 79.40 best adapter; Phi 89.60 vs 85.60 best
+   adapter). The GSM8K adapter buys math accuracy at the cost of science reasoning, which is
+   ordinary catastrophic forgetting and worth stating plainly.
+3. **Seed variance is much larger than on GSM8K.** Uniform PiSSA on Qwen ranges 39.60 to
+   69.60 across seeds, and entropy-inverted ranges 26.20 to 52.80. Two seeds cannot support a
+   claim on this benchmark; the GSM8K deltas are stable by comparison.
+
+The base model also scores 82.60 on GSM8K (Qwen) and 84.20 on GSM8K (Phi), both above their
+fine-tuned counterparts, so the fine-tuning is not improving GSM8K either. That is a
+limitation of 3000 examples at 2 epochs rather than of the rank allocation, and it is the
+first thing to address before drawing conclusions about the allocation itself.
 
 ## Tests
 

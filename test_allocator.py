@@ -330,6 +330,89 @@ def test_detect_dense() -> None:
     check("dense detection has down_proj", "down_proj" in detected)
 
 
+def test_benchmark_scoring() -> None:
+    from src.benchmarks import (
+        BENCHMARKS,
+        BENCHMARK_ORDER,
+        TASK_BOOLEAN,
+        TASK_CHOICE,
+        resolve_benchmark,
+    )
+
+    gsm = resolve_benchmark("gsm8k")
+    check(
+        "gsm8k scorer accepts #### form",
+        gsm.judge("she makes $18\n#### 18", "18")[1],
+    )
+    check(
+        "gsm8k scorer rejects wrong number",
+        not gsm.judge("#### 19", "18")[1],
+    )
+    check(
+        "gsm8k scorer requires a parseable number",
+        not gsm.judge("no idea", "18")[1],
+    )
+
+    bbh = resolve_benchmark("bbh")
+    check("bbh scorer reads (C) reference", bbh.judge("The answer is (C).", "(C)")[1])
+    check("bbh scorer reads bare letter reply", bbh.judge("The answer is C.", "(C)")[1])
+    check("bbh scorer rejects other letter", not bbh.judge("The answer is (B).", "(C)")[1])
+    check(
+        "bbh scorer handles yes/no target",
+        bbh.judge("Therefore the answer is no.", "No")[1],
+    )
+    check(
+        "bbh scorer handles true/false target",
+        bbh.judge("The answer is True.", "True")[1],
+    )
+    check(
+        "bbh scorer handles free text target",
+        bbh.judge("It is invalid.", "invalid")[1],
+    )
+    check(
+        "bbh scorer rejects inverted free text",
+        not bbh.judge("It is valid.", "invalid")[1],
+    )
+    check(
+        "bbh scorer handles word ordering target",
+        bbh.judge("Result: alpha beta gamma", "alpha beta gamma")[1],
+    )
+
+    arc = resolve_benchmark("arc_challenge")
+    check("arc scorer reads bare key", arc.judge("The answer is (C).", "C")[1])
+    check("arc scorer rejects wrong key", not arc.judge("The answer is (A).", "C")[1])
+
+    # Reference-driven typing must not be fooled by the spec default
+    check(
+        "reference type overrides spec default",
+        bbh.effective_type("invalid") == "string"
+        and bbh.effective_type("(A)") == TASK_CHOICE
+        and bbh.effective_type("No") == TASK_BOOLEAN,
+    )
+
+    check(
+        "unknown benchmark raises",
+        _raises("nope"),
+    )
+    check("benchmark registry covers order", set(BENCHMARK_ORDER) == set(BENCHMARKS))
+    check(
+        "training support flags are correct",
+        BENCHMARKS["gsm8k"].supports_training
+        and not BENCHMARKS["bbh"].supports_training
+        and not BENCHMARKS["arc_challenge"].supports_training,
+    )
+
+
+def _raises(name: str) -> bool:
+    try:
+        from src.benchmarks import resolve_benchmark
+
+        resolve_benchmark(name)
+    except ValueError:
+        return True
+    return False
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     test_entropy_bounds()
     test_rounding()
@@ -344,6 +427,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     test_param_count()
     test_detect_dense()
     test_fused_architecture()
+    test_benchmark_scoring()
 
     print()
     if FAILURES:

@@ -15,7 +15,8 @@ os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 import torch
 
-from src.evaluator import evaluate_gsm8k, save_eval_result
+from src.benchmarks import BENCHMARKS, BENCHMARK_ORDER, resolve_benchmark
+from src.evaluator import evaluate_benchmark, evaluate_gsm8k, save_eval_result
 from src.rank_allocator import (
     DEFAULT_ENTROPY_TEMPERATURE,
     DEFAULT_R_MIN,
@@ -103,6 +104,13 @@ def model_tag_for(args: argparse.Namespace) -> str:
     return re.sub(r"_seed\d+$", "", group) or "model"
 
 
+def model_family_for(args: argparse.Namespace) -> str:
+    # "Qwen/Qwen2.5-3B-Instruct" -> "qwen", "microsoft/Phi-3.5-mini-instruct" -> "phi"
+    leaf = args.model_name.rsplit("/", 1)[-1].lower()
+    match = re.match(r"[a-z]+", leaf)
+    return match.group(0) if match else "model"
+
+
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Entropy-PiSSA: spectral entropy guided rank allocation for PiSSA"
@@ -148,6 +156,29 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_eval", action="store_true")
+    parser.add_argument(
+        "--eval_benchmarks",
+        type=str,
+        default="gsm8k",
+        help=(
+            "Comma separated benchmarks to score the adapter on: "
+            f"{','.join(BENCHMARK_ORDER)}, or 'all'"
+        ),
+    )
+    parser.add_argument(
+        "--base_model_reference",
+        action="store_true",
+        help=(
+            "Also score the un-finetuned base model, which is the reference that makes "
+            "an absolute score on a new benchmark interpretable"
+        ),
+    )
+    parser.add_argument(
+        "--bbh_max_per_subtask",
+        type=int,
+        default=100,
+        help="Cap each BIG-Bench Hard subtask so the aggregate stays balanced",
+    )
     parser.add_argument("--skip_plots", action="store_true")
     parser.add_argument("--no_gradient_checkpointing", action="store_true")
     parser.add_argument("--system_prompt", type=str, default=DEFAULT_SYSTEM_PROMPT)
@@ -449,33 +480,93 @@ def train_single_mode(
     return summary
 
 
+def requested_benchmarks(args: argparse.Namespace) -> List[str]:
+    raw = (args.eval_benchmarks or "gsm8k").strip()
+    if raw.lower() == "all":
+        return list(BENCHMARK_ORDER)
+    names = [part.strip().lower() for part in raw.split(",") if part.strip()]
+    if not names:
+        return ["gsm8k"]
+    for name in names:
+        resolve_benchmark(name)
+    return names
+
+
 def evaluate_single_mode(
     spec: RunSpec,
     model,
     tokenizer,
     test_split,
     args: argparse.Namespace,
+    run_dir_override: Optional[str] = None,
 ) -> Dict[str, Any]:
-    log(f"evaluating mode={spec.label} on GSM8K test split")
-    result = evaluate_gsm8k(
-        model=model,
-        tokenizer=tokenizer,
-        dataset=test_split,
-        mode=spec.label,
-        max_new_tokens=args.max_new_tokens,
-        batch_size=args.eval_batch_size,
-        limit=args.eval_limit if args.eval_limit > 0 else None,
-        system_prompt=args.system_prompt or None,
-    )
-    run_dir = run_dir_for(args, spec.label)
-    paths = save_eval_result(result, run_dir)
-    log(
-        f"mode={spec.label} accuracy={result.accuracy_pct:.2f}% "
-        f"({result.num_correct}/{result.num_examples}) unparsed={result.num_unparsed}"
-    )
-    payload = result.to_dict(include_records=False)
-    payload["paths"] = paths
-    return payload
+    benchmarks = requested_benchmarks(args)
+    per_benchmark: Dict[str, Any] = {}
+    primary: Dict[str, Any] = {}
+    run_dir = run_dir_override or run_dir_for(args, spec.label)
+    for name in benchmarks:
+        benchmark = resolve_benchmark(name)
+        log(f"evaluating mode={spec.label} on {benchmark.display_name}")
+        if name == "gsm8k":
+            result = evaluate_gsm8k(
+                model=model,
+                tokenizer=tokenizer,
+                dataset=test_split,
+                mode=spec.label,
+                max_new_tokens=args.max_new_tokens,
+                batch_size=args.eval_batch_size,
+                limit=args.eval_limit if args.eval_limit > 0 else None,
+                system_prompt=args.system_prompt or None,
+            )
+            summary = None
+        else:
+            # eval_limit keeps the extra-benchmark cost bounded, matching the GSM8K path
+            examples = benchmark.load_examples(
+                args.eval_limit if args.eval_limit > 0 else 0,
+                args.bbh_max_per_subtask,
+            )
+            result = evaluate_benchmark(
+                model=model,
+                tokenizer=tokenizer,
+                examples=examples,
+                mode=spec.label,
+                spec=benchmark,
+                max_new_tokens=args.max_new_tokens,
+                batch_size=args.eval_batch_size,
+                system_prompt=args.system_prompt or None,
+            )
+            summary = benchmark.summarize(result.records)
+        paths = save_eval_result(result, run_dir, benchmark=name, summary=summary)
+        log(
+            f"mode={spec.label} benchmark={name} accuracy={result.accuracy_pct:.2f}% "
+            f"({result.num_correct}/{result.num_examples}) unparsed={result.num_unparsed}"
+        )
+        payload = result.to_dict(include_records=False)
+        payload["benchmark"] = name
+        payload["display_name"] = benchmark.display_name
+        payload["paths"] = paths
+        parsed = result.num_examples - result.num_unparsed
+        payload["instruction_following_rate"] = round(
+            100.0 * parsed / max(result.num_examples, 1), 4
+        )
+        # Separates "solved it but answered in the wrong format" from "got it wrong",
+        # which matters when a mode collapses into the training-set answer format
+        payload["accuracy_pct_among_parsed"] = round(
+            100.0 * result.num_correct / max(parsed, 1), 4
+        )
+        if summary is not None:
+            payload["by_subtask"] = summary
+        per_benchmark[name] = payload
+        if name == "gsm8k":
+            primary = payload
+
+    combined = dict(primary)
+    # Keep the flat keys for gsm8k so existing aggregate tooling keeps working
+    combined["benchmarks"] = per_benchmark
+    combined["primary_benchmark"] = "gsm8k" if primary else benchmarks[0]
+    if not primary:
+        combined.update(per_benchmark[benchmarks[0]])
+    return combined
 
 
 def release_model(model) -> None:
@@ -691,6 +782,11 @@ def write_comparison_plots(
 
 
 def write_results_table(run_summaries: Dict[str, Dict[str, Any]], args: argparse.Namespace) -> None:
+    # Eval-only runs carry no training metrics, so writing here would replace the
+    # four-mode comparison table with a single row of zeros
+    if args.skip_train:
+        log("skip_train set: leaving the comparison table untouched")
+        return
     rows = []
     for mode in MODES:
         summary = run_summaries.get(mode)
@@ -750,13 +846,26 @@ def run(args: argparse.Namespace) -> int:
     )
 
     tokenizer = load_tokenizer(args)
-    train_split, test_split = load_gsm8k(args)
-    log(f"dataset sizes train={len(train_split)} test={len(test_split)}")
-    train_dataset = build_text_dataset(train_split, tokenizer, args)
+    # Extra benchmarks carry their own data, so only pay for GSM8K when it is scored
+    needs_gsm8k = "gsm8k" in requested_benchmarks(args)
+    train_split, test_split = load_gsm8k(args) if needs_gsm8k else (None, None)
+    if needs_gsm8k:
+        log(f"dataset sizes train={len(train_split)} test={len(test_split)}")
+    # Eval-only runs never touch the training split, so skip the tokenization cost
+    if not args.skip_train and train_split is None:
+        raise SystemExit(
+            "training requires --eval_benchmarks to include gsm8k (the training set)"
+        )
+    train_dataset = (
+        None
+        if args.skip_train or train_split is None
+        else build_text_dataset(train_split, tokenizer, args)
+    )
 
     allocations: Dict[bool, AllocationResult] = {}
     entropy_specs = [s for s in specs if s.config_mode == "entropy_pissa"]
-    if entropy_specs:
+    # A cached adapter already carries its rank pattern, so no SVD is needed to score it
+    if entropy_specs and not args.skip_train:
         allocations = compute_allocations(
             args, [s.high_entropy_more_rank for s in entropy_specs]
         )
@@ -771,8 +880,30 @@ def run(args: argparse.Namespace) -> int:
         if args.skip_train:
             summary: Dict[str, Any] = {"mode": spec.label}
             if not args.skip_eval:
-                model = load_trained_adapter(args, spec.label)
-                summary["eval"] = evaluate_single_mode(spec, model, tokenizer, test_split, args)
+                if args.base_model_reference:
+                    # A base-reference pass scores the raw weights, not a saved adapter
+                    base_spec = RunSpec(
+                        label="base_model",
+                        config_mode="base",
+                        high_entropy_more_rank=True,
+                    )
+                    model = load_base_model(args)
+                    model.eval()
+                    summary["eval"] = evaluate_single_mode(
+                        base_spec,
+                        model,
+                        tokenizer,
+                        test_split,
+                        args,
+                        run_dir_override=os.path.join(
+                            args.output_dir, f"base_reference_{model_family_for(args)}"
+                        ),
+                    )
+                else:
+                    model = load_trained_adapter(args, spec.label)
+                    summary["eval"] = evaluate_single_mode(
+                        spec, model, tokenizer, test_split, args
+                    )
                 del model
                 release_model(None)
         else:

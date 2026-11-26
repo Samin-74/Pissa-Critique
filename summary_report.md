@@ -9,24 +9,37 @@ Entropy-PiSSA replaces that uniform rank with a per-matrix rank derived from the
 spectral entropy of the matrix, under a hard parameter budget equal to the uniform `r=16`
 baseline.
 
-The headline result is that the **inverted** allocation, which gives more rank to low entropy
-(spectrally concentrated) projections, is the best PiSSA variant on both models tested:
+On GSM8K, the **inverted** allocation, which gives more rank to low entropy (spectrally
+concentrated) projections, is the best PiSSA variant on both models tested:
 
-| Model | Uniform PiSSA | Entropy-PiSSA inverted | Delta |
-| --- | --- | --- | --- |
-| Qwen2.5-3B-Instruct | 61.10 +/- 0.71 | **63.00 +/- 0.57** | +1.90 |
-| Phi-3.5-mini-instruct | 65.40 +/- 0.28 | **67.60 +/- 0.57** | +2.20 |
+| Model | Uniform PiSSA | Entropy-PiSSA inverted | Delta | Paired p |
+| --- | --- | --- | --- | --- |
+| Qwen2.5-3B-Instruct | 61.10 +/- 0.71 | **63.00 +/- 0.57** | +1.90 | 0.46 / 0.44 |
+| Phi-3.5-mini-instruct | 65.40 +/- 0.28 | **67.60 +/- 0.57** | +2.20 | 0.50 / 0.22 |
+
+**This advantage is task-specific.** The same adapters were scored, without retraining, on
+ARC-Challenge science questions, where the inverted allocation loses to uniform PiSSA on both
+models (-15.10 Qwen, -1.40 Phi). The paired p values above are per-seed tests over the 500
+shared items, and pooled over all four model/seed groups the GSM8K gap is p = 0.064, so it is
+also not yet statistically significant. Two seeds is too few to settle it.
 
 The default direction, which gives more rank to high entropy projections, behaves very
-differently on the two models. On Phi-3.5 it is harmless (66.60 +/- 1.13, slightly above
-uniform PiSSA). On Qwen2.5 it collapses: 1.50 +/- 0.71, with both seeds diverging during
+differently on the two models. On Phi-3.5 it is harmless on GSM8K (66.60 +/- 1.13, slightly
+above uniform PiSSA). On Qwen2.5 it collapses: 1.50 +/- 0.71, with both seeds diverging during
 training. The section "Why the default direction fails on Qwen" identifies the cause as a
 width dependent artifact of the entropy normalization, and shows that the severity of the
 failure tracks how uneven the resulting allocation is.
 
-All numbers in this report are read directly from `outputs/results/comparison_all.csv` and
-`outputs/results/summary_metrics.json`. Means and standard deviations are over two seeds
-(42 and 123) with 3000 training examples, 2 epochs, and 500 GSM8K test examples per run.
+Two further results bound the claim. Both base models outscore every fine-tuned variant on
+both benchmarks (GSM8K 82.60 and 84.20, ARC 73.20 and 89.60), so at this training budget the
+fine-tuning is not improving either task in absolute terms. And the modes differ sharply in
+answer-format compliance on ARC, from 98.2% down to 1.6%, which is reported alongside every
+accuracy and separated out as `accuracy_pct_among_parsed`.
+
+All numbers in this report are read from `outputs/results/comparison_all.csv`,
+`outputs/results/summary_metrics.json`, and `outputs/results/benchmark_summary.csv`. Means and
+standard deviations are over two seeds (42 and 123) with 3000 training examples, 2 epochs, and
+500 test examples per benchmark per run.
 
 ## Experimental setup
 
@@ -188,6 +201,51 @@ This is consistent with the PiSSA literature: PiSSA's advantage appears at low r
 `r=16` with 3000 examples the zero-initialized LoRA adapter is simply easier to optimize.
 The comparison of interest in this report is between PiSSA variants, all of which share the
 same initialization and differ only in rank allocation.
+
+### ARC-Challenge (second benchmark, no retraining)
+
+The same adapters scored on ARC-Challenge science questions, 500 items per run, greedy
+decoding. No retraining is involved: the rank allocation depends only on the base weights, so
+the adapters transfer as they are. The base row is the un-finetuned model.
+
+| Model | Mode | ARC seed 42 | ARC seed 123 | Mean +/- std |
+| --- | --- | --- | --- | --- |
+| Qwen2.5-3B | Base model | 73.20% | - | 73.20 |
+| Qwen2.5-3B | Uniform LoRA | 79.00% | 79.80% | **79.40 +/- 0.57** |
+| Qwen2.5-3B | Uniform PiSSA | 69.60% | 39.60% | 54.60 +/- 21.21 |
+| Qwen2.5-3B | Entropy-PiSSA (default) | 0.00% | 0.00% | 0.00 +/- 0.00 |
+| Qwen2.5-3B | Entropy-PiSSA (inverted) | 52.80% | 26.20% | 39.50 +/- 18.81 |
+| Phi-3.5-mini | Base model | 89.60% | - | 89.60 |
+| Phi-3.5-mini | Uniform LoRA | 85.40% | 85.80% | **85.60 +/- 0.28** |
+| Phi-3.5-mini | Uniform PiSSA | 71.20% | 61.60% | 66.40 +/- 6.79 |
+| Phi-3.5-mini | Entropy-PiSSA (default) | 77.20% | 71.60% | 74.40 +/- 3.96 |
+| Phi-3.5-mini | Entropy-PiSSA (inverted) | 59.40% | 76.20% | 67.80 +/- 11.88 |
+
+Paired tests on identical items, inverted versus uniform PiSSA: -16.80 (Qwen seed 42),
+-13.40 (Qwen seed 123), -11.80 (Phi seed 42), +14.60 (Phi seed 123), all p < 0.001. The
+directions are inconsistent, which is the point.
+
+The inverted-versus-uniform PiSSA advantage **does not transfer** to this benchmark. On GSM8K
+it is +1.90 (Qwen) and +2.20 (Phi); on ARC it is -15.10 (Qwen) and -1.40 (Phi). The GSM8K
+gain is therefore a task-specific effect, not a property of the allocation. Uniform LoRA is
+again the best adapter on both models.
+
+Seed variance is far larger here than on GSM8K. Uniform PiSSA on Qwen spans 39.60 to 69.60,
+and inverted spans 26.20 to 52.80, against a GSM8K spread of under 1 point. Two seeds cannot
+support a claim on this benchmark.
+
+Two further observations belong in any honest reading:
+
+- Both base models beat every fine-tuned variant on ARC (Qwen 73.20 vs 79.40 best adapter,
+  Phi 89.60 vs 85.60 best adapter), and both also beat them on GSM8K (82.60 and 84.20). The
+  3000-example, 2-epoch budget is the likely cause, and it means the fine-tuning is not
+  improving either benchmark in absolute terms.
+- Answer-format compliance diverges sharply by mode. On ARC, uniform LoRA replies in the
+  expected option format 96.5-98.2% of the time, while entropy-inverted does so only 54.9%
+  (Qwen) and 86.4% (Phi), and the Qwen default direction does so 1.6% of the time. Those
+  models answer in GSM8K's `#### <number>` format instead. `accuracy_pct_among_parsed` in
+  `outputs/results/benchmark_summary.csv` isolates reasoning quality from this format
+  collapse; for Qwen inverted it is 70.88%, which is well above its 39.50% overall.
 
 ## Why the default direction fails on Qwen
 
@@ -379,15 +437,27 @@ python train.py \
 
 ## Limitations
 
-- Results are from two models and two seeds. The inverted-versus-uniform gap is consistent
-  across both models and both seeds, but the sample is small.
+- Results are from two models and two seeds. The inverted-versus-uniform gap on GSM8K is
+  consistent across both models and both seeds, but the sample is small and a paired test
+  over the 500 GSM8K items gives p = 0.064 pooled, so the gap is not yet significant.
+- The inverted-versus-uniform advantage does **not** transfer to ARC-Challenge, where it is
+  -15.10 on Qwen and -1.40 on Phi. The GSM8K result is task-specific. Any claim about the
+  allocation as a general improvement would be wrong on this evidence.
+- ARC-Challenge seed variance is large (uniform PiSSA on Qwen spans 39.60 to 69.60), so two
+  seeds cannot support a claim on that benchmark. More seeds are the first thing to add.
+- Both base models score above every fine-tuned variant on both benchmarks (GSM8K 82.60 /
+  84.20, ARC 73.20 / 89.60). At 3000 examples and 2 epochs the fine-tuning is not improving
+  either task in absolute terms, which limits what any mode comparison can claim. A longer or
+  larger training run is needed before the allocation effect can be separated from the
+  fine-tuning effect.
 - The explanation for the Qwen collapse is post-hoc. It is supported by the measured
   correlation between allocation unevenness and outcome, and by the raw-versus-normalized
   entropy ordering, but it was not predicted in advance.
-- Only GSM8K is evaluated. Rank allocation interacts with task structure, and a task requiring
-  different projections would likely produce a different allocation.
-- The training budget (3000 examples, 2 epochs) is short. Longer training could change the
-  ordering, particularly for the default direction on Qwen, though the loss curves show no
-  recovery within the observed window.
+- Rank allocation interacts with task structure, and a task requiring different projections
+  would likely produce a different allocation. Only self-consistency-style transfer is tested
+  here: the same allocation scored on a different task.
 - `r_min=4` was never binding on Qwen (minimum realized rank 6), and the interaction between
   `r_min` and the allocation direction was not ablated.
+- BIG-Bench Hard is registered in `src/benchmarks.py` and validated by the oracle test, but
+  its results are not yet generated. At 2400 items x 16 adapters it costs roughly 15 GPU hours
+  and was deferred in favour of ARC-Challenge.

@@ -1,0 +1,9 @@
+benchmark,model,group,n_items,baseline_only_correct,treatment_only_correct,delta_pct,p_value
+arc_challenge,phi,phi_seed123,500,32,105,14.6,0.0
+arc_challenge,phi,phi_seed42,500,115,56,-11.8,8e-06
+arc_challenge,qwen,qwen_seed123,500,119,52,-13.4,0.0
+arc_challenge,qwen,qwen_seed42,500,119,35,-16.8,0.0
+gsm8k,phi,phi_seed123,500,48,62,2.8,0.214977
+gsm8k,phi,phi_seed42,500,49,57,1.6,0.496754
+gsm8k,qwen,qwen_seed123,500,62,72,2.0,0.436991
+gsm8k,qwen,qwen_seed42,500,53,62,1.8,0.455814
