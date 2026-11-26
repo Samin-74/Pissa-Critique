@@ -20,19 +20,21 @@ best PiSSA variant on both models tested, and the default allocation fails on on
 | Phi-3.5-mini-instruct | 65.40 +/- 0.28 | 67.60 +/- 0.57 | +2.20 |
 
 The default direction scores 1.50 +/- 0.71 on Qwen2.5 (training diverges on both seeds) but
-66.60 +/- 1.13 on Phi-3.5. The difference is traced to the `ln(min(m, n))` normalization
+66.60 +/- 1.13 on Phi-3.5. The difference is traced to the `log2(min(m, n))` normalization
 interacting with the mix of module widths in each model.
 
 **The GSM8K advantage does not generalize.** The same adapters, scored without retraining on
 ARC-Challenge science questions, show no replicable advantage for the inverted allocation:
--15.10 on Qwen, and on Phi it swings from -11.80 to +14.60 across the two seeds. Both base
-models also outscore every fine-tuned variant on both benchmarks, so at 3000 examples the
-fine-tuning is not improving either task in absolute terms. `summary_report.md` has the full
-analysis and the caveats.
+-15.10 on Qwen, and on Phi it swings from -11.80 to +14.60 across the two seeds. On GSM8K the
+base model also outscores every fine-tuned variant (82.60 vs 65.70 on Qwen, 84.20 vs 76.10 on
+Phi), and on ARC the base model wins for Phi (89.60 vs 85.60) but loses for Qwen (73.20 vs
+79.40 uniform LoRA). At 3000 examples the fine-tuning therefore improves one of these four
+model/benchmark pairs. `summary_report.md` has the full analysis and the caveats.
 
 ## Method
 
-For each target projection `W` in `{q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj}`:
+For each target projection `W` in `{q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj}`,
+or in the fused equivalents `{qkv_proj, gate_up_proj}` that Phi-3.5 uses (detected automatically):
 
 1. Compute singular values `sigma` with `torch.linalg.svdvals` on CPU.
 2. Normalize them into a probability vector `p_i = sigma_i / (sum_j sigma_j + eps)`.
@@ -74,12 +76,19 @@ less width-confounded (`r = -0.22`), but it is a much flatter signal: its coeffi
 variation is only 0.021, with all 252 values inside `[0.908, 0.999]`.
 
 That flatness is the central empirical finding of this project. Because
-`effective_rank = exp(H * ln min(m, n))` holds exactly by construction (it is the perplexity
-of the singular value distribution), normalized entropy is a rescaled effective rank, and the
-spread between the widest and narrowest matrices is small in entropy terms but large in rank
-terms. Allocating rank in proportion to entropy therefore compresses the dynamic range of the
-allocation far below what the underlying spectra would justify, which is what the inverted
-direction corrects. See `summary_report.md` for the measured consequences.
+`effective_rank = exp(H * ln min(m, n))` holds by construction when `H` is the normalized
+entropy (it is the perplexity of the singular value distribution), normalized entropy is a
+rescaled effective rank, and the spread
+between the widest and narrowest matrices is small in entropy terms but large in rank terms.
+Allocating rank in proportion to entropy therefore compresses the dynamic range of the
+allocation far below what the underlying spectra would justify.
+
+Inverting the preference (`high_entropy_more_rank=False`) does not restore that range: it
+negates the standardized scores, so the allocation has the same spread and only the
+preference is reversed. What inversion changes is which modules are favoured. The measured
+consequence is in `summary_report.md`: inverting gives the widest, highest effective-rank
+attention projections the largest ranks instead of the smallest, and that is the direction
+that stays stable on Qwen.
 
 ## Project layout
 
@@ -158,8 +167,12 @@ GB, which is why `expandable_segments` matters: without it the caching allocator
 over a long run until Windows spills to shared memory, and throughput collapses from 1.2 s/it
 to over 300 s/it while still reporting 100% GPU utilization.
 
-GSM8K prompts never exceed 567 tokens, so 512 is enough for that dataset. 4096 will not fit at
-micro batch 4; use micro batch 1 with more accumulation steps.
+Measured over the 3000 training examples at `max_seq_length=512`, the tokenized chat text has
+median length 196, a 99th percentile of 421, and a maximum of 567 tokens. Exactly one example
+exceeds 512, and its `#### <answer>` span still falls inside the kept window. GSM8K test
+prompts are shorter still: the maximum across every evaluation here is 206 tokens, so 512 is
+sufficient for this dataset without being a universal limit. 4096 will not fit at micro batch
+4; use micro batch 1 with more accumulation steps.
 
 ## Install
 
@@ -172,8 +185,13 @@ pip install -r requirements.txt
 
 `transformers>=5.0.0` and `trl>=1.0.0` are hard requirements, not preferences. The trainer
 uses `SFTTrainer(processing_class=...)` and `SFTConfig(warmup_steps=...)` only, because trl 1
-removed the older `tokenizer` and `warmup_ratio` arguments. Installing the previously
+removed the older `tokenizer` and `warmup_ratio` config arguments. Installing the previously
 documented `transformers>=4.40` / `trl>=0.8.6` produces a `TypeError` at trainer construction.
+
+The CLI keeps a `--warmup_ratio` flag (default `0.03`) for readability, but it is **not** passed
+to `SFTConfig` as a ratio. Values below 1.0 are forwarded to `warmup_steps`, which trl 1 also
+interprets as a ratio; values of 1.0 or more are treated as absolute step counts. The name is
+therefore a convenience alias, not the removed trl argument.
 
 Tested on Windows 11, Python 3.12, torch 2.14.1+cu132, transformers 5.20.2, peft 0.21.2,
 trl 1.16.0, on an RTX 4080 Super (16 GB).
@@ -310,7 +328,7 @@ python train.py \
     --learning_rate 2e-4 --num_train_epochs 2 \
     --train_limit 3000 --eval_limit 500 \
     --eval_batch_size 8 --max_new_tokens 512 \
-    --logging_steps 10 --save_steps 100000 \
+    --logging_steps 10 \
     --seed 42 --skip_plots
 ```
 

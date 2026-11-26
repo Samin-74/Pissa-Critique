@@ -31,7 +31,6 @@ $common = @(
     "--eval_batch_size", "8",
     "--max_new_tokens", "512",
     "--logging_steps", "10",
-    "--save_steps", "100000",
     "--seed", "$Seed",
     "--skip_plots"
 ) + $trust

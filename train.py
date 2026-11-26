@@ -145,7 +145,6 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--num_train_epochs", type=float, default=1.0)
     parser.add_argument("--max_steps", type=int, default=-1)
     parser.add_argument("--logging_steps", type=int, default=10)
-    parser.add_argument("--save_steps", type=int, default=200)
     parser.add_argument("--warmup_ratio", type=float, default=0.03)
     parser.add_argument("--lr_scheduler_type", type=str, default="cosine")
     parser.add_argument("--optim", type=str, default="paged_adamw_8bit")
@@ -368,8 +367,7 @@ def build_sft_config(args: argparse.Namespace, label: str):
         "num_train_epochs": args.num_train_epochs,
         "max_steps": args.max_steps,
         "logging_steps": args.logging_steps,
-        "save_steps": args.save_steps,
-        "save_total_limit": 1,
+        # Only the final adapter is kept, so checkpointing and save_steps are off
         "save_strategy": "no",
         "warmup_steps": warmup,
         "lr_scheduler_type": args.lr_scheduler_type,

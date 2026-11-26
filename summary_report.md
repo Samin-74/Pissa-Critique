@@ -31,14 +31,17 @@ training. The section "Why the default direction fails on Qwen" identifies the c
 width dependent artifact of the entropy normalization, and shows that the severity of the
 failure tracks how uneven the resulting allocation is.
 
-Two further results bound the claim. Both base models outscore every fine-tuned variant on
-both benchmarks (GSM8K 82.60 and 84.20, ARC 73.20 and 89.60), so at this training budget the
-fine-tuning is not improving either task in absolute terms. And the modes differ sharply in
+Two further results bound the claim. The base model outscores every fine-tuned variant on
+GSM8K (Qwen 82.60 vs 65.70 best adapter, Phi 84.20 vs 76.10) and on ARC for Phi (89.60 vs
+85.60). ARC Qwen is the exception, where uniform LoRA lifts 73.20 to 79.40. Three of the four
+model/benchmark pairs therefore lose accuracy to fine-tuning, so at this training budget the
+fine-tuning is not improving these tasks in absolute terms. And the modes differ sharply in
 answer-format compliance on ARC, from 98.2% down to 1.6%, which is reported alongside every
 accuracy and separated out as `accuracy_pct_among_parsed`.
 
 All numbers in this report are read from `outputs/results/comparison_all.csv`,
-`outputs/results/summary_metrics.json`, and `outputs/results/benchmark_summary.csv`. Means and
+`outputs/results/summary_metrics.json`, `outputs/results/summary_table.csv`, and
+`outputs/results/benchmark_summary.csv`. Means and
 standard deviations are over two seeds (42 and 123) with 3000 training examples, 2 epochs, and
 500 test examples per benchmark per run.
 
@@ -131,10 +134,11 @@ MLP projections have systematically higher normalized entropy than attention pro
 (0.9899 vs 0.9679 mean). Within attention, `v_proj` is the most entropic and `q_proj` the
 least.
 
-The raw entropy column is the important one. `q_proj` and `o_proj` have the second and third
-highest raw entropy of any module, but the lowest normalized entropy, because they are 2048
-wide and the normalization divides by `ln(2048)` rather than `ln(256)`. The normalization
-therefore reverses their position in the ordering.
+The raw entropy column is the important one. `q_proj` and `o_proj` have the fifth and fourth
+highest raw entropy of the seven modules, but the lowest normalized entropy, because they are
+2048 wide and the normalization divides by `log2(2048)` rather than `log2(256)`. The
+normalization therefore moves them below the two 256-wide attention projections, which is what
+matters for the allocation.
 
 ## Rank allocation results
 
@@ -150,8 +154,8 @@ therefore reverses their position in the ordering.
 | `down_proj` | 10.90 | 0.9907 | 1914 | 2048 | 17.4 | 13.2 | 0.91% | 0.69% |
 | `v_proj` | 7.96 | 0.9952 | 249 | 256 | 18.8 | 12.2 | 7.55% | 4.90% |
 
-The default allocation spans a factor of **11.85x** in rank-to-effective-rank ratio, from
-0.64% for `q_proj` to 7.55% for `v_proj`.
+The default allocation spans a factor of **11.87x** in rank-to-effective-rank ratio, from
+0.636% for `q_proj` to 7.547% for `v_proj`.
 
 ### Phi-3.5-mini-instruct
 
@@ -163,7 +167,7 @@ The default allocation spans a factor of **11.85x** in rank-to-effective-rank ra
 | `gate_up_proj` | 11.50 | 0.9929 | 2902 | 3072 | 18.6 | 12.2 | 0.64% | 0.42% |
 
 Phi uses fused projections, so all four target modules are 3072 wide. The default allocation
-spans only **1.66x** in rank-to-effective-rank ratio.
+spans only **1.66x** in rank-to-effective-rank ratio (0.386% to 0.641%).
 
 Both allocations hit the parameter budget to within 0.5%: Qwen default 29,788,160 against a
 target of 29,933,568 (0.49% under), Qwen inverted 29,790,208 (0.48% under), Phi default
@@ -172,10 +176,13 @@ target of 29,933,568 (0.49% under), Qwen inverted 29,790,208 (0.48% under), Phi 
 ## Benchmark results
 
 GSM8K exact match, 500 test examples per run, greedy decoding, `max_new_tokens=512`.
+"Run-avg loss" is the trainer's `train_loss`, averaged over all logged steps of the run
+(`final_loss` in `comparison_all.csv`). It is a different quantity from the last logged step
+loss used in the training-evidence table further down.
 
 ### Qwen2.5-3B-Instruct
 
-| Mode | Seed 42 | Seed 123 | Mean +/- std | Final loss |
+| Mode | Seed 42 | Seed 123 | Mean +/- std | Run-avg loss |
 | --- | --- | --- | --- | --- |
 | Uniform LoRA (r=16) | 65.00% | 66.40% | **65.70 +/- 0.99** | 0.235 |
 | Uniform PiSSA (r=16) | 61.60% | 60.60% | **61.10 +/- 0.71** | 0.808 |
@@ -184,7 +191,7 @@ GSM8K exact match, 500 test examples per run, greedy decoding, `max_new_tokens=5
 
 ### Phi-3.5-mini-instruct
 
-| Mode | Seed 42 | Seed 123 | Mean +/- std | Final loss |
+| Mode | Seed 42 | Seed 123 | Mean +/- std | Run-avg loss |
 | --- | --- | --- | --- | --- |
 | Uniform LoRA (r=16) | 76.40% | 75.80% | **76.10 +/- 0.42** | 0.277 |
 | Uniform PiSSA (r=16) | 65.60% | 65.20% | **65.40 +/- 0.28** | 0.443 |
@@ -195,13 +202,20 @@ GSM8K exact match, 500 test examples per run, greedy decoding, `max_new_tokens=5
 
 The inverted allocation beats uniform PiSSA on both models, by +1.90 points on Qwen and
 +2.20 points on Phi. The standard deviations are small (0.57 on both), so the ordering is
-stable across seeds.
+stable across seeds, though a paired test over the 500 shared items gives p between 0.22 and
+0.50 per seed and p = 0.064 pooled, so the gap is not yet significant.
 
-Uniform LoRA remains the strongest single configuration on both models (65.70 and 76.10).
-This is consistent with the PiSSA literature: PiSSA's advantage appears at low rank, and at
-`r=16` with 3000 examples the zero-initialized LoRA adapter is simply easier to optimize.
-The comparison of interest in this report is between PiSSA variants, all of which share the
-same initialization and differ only in rank allocation.
+Uniform LoRA beats uniform PiSSA by 4.6 points on Qwen and 10.7 on Phi. That direction is
+opposite to the PiSSA paper, which reports PiSSA above LoRA on GSM8K from `r=16` upward, so
+the gap here should not be read as an expected property of `r=16`. The Qwen PiSSA runs in this
+project also carry much heavier optimization load than LoRA: training loss of 0.69 to 1.18
+against 0.235, gradient norms reaching 2288 to 6202 against 70, and 12 to 19 steps above a
+gradient norm of 50 against 1. With `lr=2e-4` on non-zero initialized adapters that is a
+plausible optimization-settings effect rather than a statement about rank. Phi shows a much
+milder version of the same pattern (loss 0.43 to 0.49 against 0.277). This report does not
+isolate the cause; it measures the rank allocation with the settings fixed, and the comparison
+of interest is between PiSSA variants, which share the initialization and differ only in the
+allocation.
 
 ### ARC-Challenge (second benchmark, no retraining)
 
@@ -256,50 +270,85 @@ the interaction between the entropy normalization and the set of target module w
 
 ### The normalization reverses the ordering when widths differ
 
-Normalized entropy divides by `ln(min(m, n))`. On Qwen the target modules have two different
-widths (2048 for `q_proj`, `o_proj`, and the MLP; 256 for `k_proj` and `v_proj`). Dividing by
-`ln(2048)` instead of `ln(256)` scales a value by 1.375, which is enough to overturn the raw
+Normalized entropy divides by `log2(min(m, n))`. On Qwen the target modules have two different
+widths (2048 for `q_proj`, `o_proj`, `k_proj`, and the MLP; 256 for `v_proj`). Dividing by
+`log2(2048)` instead of `log2(256)` scales a value by 1.375, which is enough to overturn the raw
 ordering:
 
-- `q_proj` has raw entropy 10.42 (2nd highest) but normalized entropy 0.9476 (lowest).
-- `o_proj` has raw entropy 10.50 (3rd highest) but normalized entropy 0.9548 (2nd lowest).
+- `q_proj` has raw entropy 10.42 (5th of 7) but normalized entropy 0.9476 (lowest of 7).
+- `o_proj` has raw entropy 10.50 (4th of 7) but normalized entropy 0.9548 (2nd lowest).
 
-The heuristic therefore assigns the least rank to the two most spectrally spread matrices.
+The three MLP projections rank above both in raw entropy (`down_proj` 10.90, `up_proj` 10.89,
+`gate_proj` 10.88) and also in effective rank, so they are the most spectrally spread matrices.
+What the normalization flips is the relative position of `{q_proj, o_proj}` against
+`{k_proj, v_proj}`: the wide matrices fall below the narrow ones. The heuristic therefore
+assigns the least rank to `q_proj` and `o_proj`, which are wide and carry high effective rank.
 On Phi all four modules are 3072 wide, the normalization is a constant, and the ordering is
 preserved.
 
-### The severity tracks allocation unevenness
+### Which projections get starved, not how uneven the allocation is
 
-| Model | r/eff spread | Default direction outcome |
-| --- | --- | --- |
-| Qwen2.5-3B | 11.85x | collapse, 1.50 +/- 0.71 |
-| Phi-3.5-mini | 1.66x | stable, 66.60 +/- 1.13 |
+An earlier version of this report argued that severity tracks the spread of `r/eff`. That
+argument does not survive the inverted numbers, so it is replaced here.
 
-On Phi every module lands in a narrow 0.39% to 0.64% band, so the direction of the preference
-barely matters and the default is within noise of uniform PiSSA. On Qwen `q_proj` is held to
-0.64% of its effective rank while `v_proj` receives 7.55%, and the model breaks.
+| Model | Direction | r/eff spread | Outcome |
+| --- | --- | --- | --- |
+| Qwen2.5-3B | default | 11.87x (0.636% to 7.547%) | collapse, 1.50 +/- 0.71 |
+| Qwen2.5-3B | inverted | **11.37x (0.727% to 8.262%)** | stable, 63.00 +/- 0.57 |
+| Phi-3.5-mini | default | 1.66x (0.386% to 0.641%) | stable, 66.60 +/- 1.13 |
+| Phi-3.5-mini | inverted | **2.82x (0.421% to 1.186%)** | stable, 67.60 +/- 0.57 |
+
+On Qwen the two directions are almost equally uneven (11.87x vs 11.37x) yet only the default
+collapses, and on Phi the inverted direction is the more uneven of the two (2.82x vs 1.66x)
+and is still stable. Unevenness alone does not separate collapse from stability.
+
+What does separate them is **which** modules are starved. The default direction gives `q_proj`
+the lowest allocation in the model (r=8.8, about 0.64% of its effective rank of 1376) and
+`o_proj` the next lowest (r=9.8, 0.67% of 1453). The inverted direction gives those same two
+modules the largest allocations instead (r=29.7 and r=25.4). Both directions hold `k_proj` and
+`v_proj` near their effective ranks in relative terms. The collapse therefore aligns with
+starving the two wide attention projections that carry the most effective rank, not with the
+spread of the allocation as a whole.
+
+That is still a two-model, post-hoc explanation. It narrows where to look, it does not
+establish the mechanism.
 
 ### Training evidence
 
 The collapse is visible in the loss curves, gradient norms, and token-level metrics, not only
 in the final accuracy.
 
-| Mode (Qwen, seed 42) | Median grad norm | p90 grad norm | Max grad norm | Steps above 50 | Final loss |
+| Mode (Qwen, seed 42) | Median grad norm | p90 grad norm | Max grad norm | Steps above 50 | Last logged loss |
 | --- | --- | --- | --- | --- | --- |
 | Uniform LoRA | 2.26 | 2.92 | 70.2 | 1 | 0.181 |
 | Uniform PiSSA | 5.49 | 685.69 | 2298.8 | 18 | 0.350 |
 | Entropy-PiSSA (default) | 26.10 | 55.79 | 308.2 | 9 | 2.005 |
 | Entropy-PiSSA (inverted) | 5.89 | 92.61 | 965.9 | 12 | 0.339 |
 
-The default direction has a median gradient norm 4.8x higher than any other mode. It is not a
-single spike but chronically elevated gradients throughout training. Both seeds diverge at
-step 150 (seed 42) and step 130 (seed 123) and never recover.
+"Last logged loss" is the final entry of `loss_curve.json` at step 750. It is not the same
+quantity as the `final_loss` column in `comparison_all.csv` and the GSM8K tables above, which
+is the trainer's run-averaged `train_loss` (0.235, 0.923, 3.148, 0.885 for the same four runs).
+The last logged value is lower because it reflects only the final step, so the two should not be
+compared across tables.
+
+The default direction has a median gradient norm 4.8x higher than any other mode on this seed.
+The comparison point is uniform PiSSA (26.10 / 5.49 = 4.76x), not the inverted direction, which
+sits at 5.89 and is therefore lower than the default. It is not a single spike but chronically
+elevated gradients throughout training. Both seeds fluctuate heavily from step 150 (seed 42)
+and step 130 (seed 123) and never recover.
+
+The tail metrics in fact point at the PiSSA modes as a group rather than at the default
+direction alone. Across both Qwen seeds the largest max gradient norm belongs to inverted
+(6201.6, seed 123), the largest p90 to uniform PiSSA (685.69, seed 42), the most steps above a
+grad norm of 50 to inverted (19, seed 123), and the highest peak token entropy to inverted
+(6.48, seed 42). The default direction is distinctive in ending training with high *mean*
+token entropy and low next-token accuracy, not in producing the largest single excursion.
 
 Token-level metrics separate the two entropy directions more sharply than gradients do. The
 trainer logs the mean token entropy and the mean next-token accuracy of the model's own
 predictions, averaged over both seeds:
 
-| Model | Mode | Final token entropy | Peak token entropy | Final token accuracy |
+| Model | Mode | Final token entropy | Mean of per-seed peaks | Final token accuracy |
 | --- | --- | --- | --- | --- |
 | Qwen | Uniform LoRA | 0.187 | 0.619 | 0.952 |
 | Qwen | Uniform PiSSA | 0.350 | 3.959 | 0.900 |
@@ -309,6 +358,12 @@ predictions, averaged over both seeds:
 | Phi | Uniform PiSSA | 0.285 | 0.634 | 0.917 |
 | Phi | Entropy-PiSSA (default) | 0.276 | 0.619 | 0.920 |
 | Phi | Entropy-PiSSA (inverted) | 0.291 | 1.287 | 0.913 |
+
+The peak column is the mean of the two per-seed maxima, not the maximum across seeds.
+`summary_table.csv` reports the latter as `max_token_entropy_max` and gives 4.564, 5.735 and
+6.480 for the three Qwen PiSSA modes. The gap matters for Phi inverted, where the two seeds
+peak at 0.621 and 1.952: the mean is 1.287 but one seed reached nearly three times the other,
+so the instability is seed-specific rather than uniform.
 
 On Qwen the default direction ends training with token entropy 2.334 against 0.338 for the
 inverted direction, and next-token accuracy 0.487 against 0.904. The model is not merely
@@ -348,7 +403,7 @@ of the implemented heuristic.
 ## Reading these numbers honestly
 
 1. **Two seeds is a small sample.** The standard deviations reported here (0.28 to 1.13
-   points) are within-seed variation, not confidence intervals over the training
+   points) are between-seed variation, not confidence intervals over the training
    distribution. The +1.90 and +2.20 point gaps are larger than the observed standard
    deviations, but a third seed would strengthen the claim.
 
@@ -419,7 +474,7 @@ python train.py \
     --learning_rate 2e-4 --num_train_epochs 2 \
     --train_limit 3000 --eval_limit 500 \
     --eval_batch_size 8 --max_new_tokens 512 \
-    --logging_steps 10 --save_steps 100000 \
+    --logging_steps 10 \
     --seed 42 --skip_plots
 ```
 
@@ -451,6 +506,18 @@ python train.py \
 
 ## Limitations
 
+- **Loss includes the prompt.** `build_sft_config` sets `completion_only_loss=False`, and
+  `build_training_text` concatenates the system prompt, question, and answer, so cross-entropy
+  is computed over the whole sequence rather than only the target answer. The prompt tokens are
+  a large share of each example (median 196 tokens total), so a substantial part of the
+  reported training loss measures the model's fit to the question rather than to the solution.
+  This is a real training defect and it is the most likely reason the fine-tuned adapters trail
+  the base models. It was left unchanged because fixing it would invalidate every reported
+  number; it is the first thing to correct in a follow-up run.
+- Training uses `init_lora_weights="gaussian"` for `uniform_lora` rather than PEFT's default
+  Kaiming uniform, so that mode is not the stock baseline.
+- `--save_steps` was accepted but had no effect, because the config forces
+  `save_strategy="no"` and only the final adapter is kept. The flag has been removed.
 - Results are from two models and two seeds. The inverted-versus-uniform gap on GSM8K is
   consistent across both models and both seeds, but the sample is small and a paired test
   over the 500 GSM8K items gives p = 0.064 pooled, so the gap is not yet significant.
