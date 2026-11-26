@@ -209,20 +209,26 @@ The suite is resumable: a run that already produced `eval_<mode>.json` is skippe
 GSM8K is a single task family. Because the rank allocation is derived from the base model
 weights only, it is identical for every training set, so a second training set would test the
 same allocation. What changes the claim is a benchmark that measures a *different* kind of
-reasoning. Both non-math benchmarks below are scored from the adapters already on disk.
+reasoning. `arc_challenge` plays that role in this repository; `bbh` is implemented but was
+not run.
 
-| Benchmark | Task | Format | Why it is included |
+| Benchmark | Status | Task | Format |
 | --- | --- | --- | --- |
-| `gsm8k` | grade-school math | `#### <number>` | the original result |
-| `bbh` | BIG-Bench Hard, 24 non-arithmetic subtasks | letter / yes-no / free text | logic, tracking, causal, temporal, and linguistic reasoning with no arithmetic shortcut |
-| `arc_challenge` | ARC science questions | 4-way choice | science reasoning, disjoint vocabulary from GSM8K |
+| `gsm8k` | **reported** | grade-school math | `#### <number>` |
+| `arc_challenge` | **reported** | ARC science questions | 4-way choice |
+| `bbh` | **implemented, not run** | BIG-Bench Hard, 24 non-arithmetic subtasks | letter / yes-no / free text |
 
-Score the existing adapters (no training step):
+Only `gsm8k` and `arc_challenge` have results in this repository; the tables in "Results" come
+from those two. `bbh` is registered and its scorer is unit-tested in `test_allocator.py`, but
+scoring it needs about 15 GPU hours for 2400 items across the 16 adapters, so it was deferred
+and has no numbers here. Do not cite BBH results from this repository.
+
+Score the existing adapters on the reported second benchmark (no training step):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File run_extra_benchmarks.ps1 `
-    -Model "Qwen/Qwen2.5-3B-Instruct" -ModelTag qwen -Seeds 42,123 `
-    -Benchmarks "bbh,arc_challenge"
+    -Model "Qwen/Qwen2.5-3B-Instruct" -ModelTag qwen -Seeds "42,123" `
+    -Benchmarks "arc_challenge"
 ```
 
 Or score one adapter directly, reusing its saved rank pattern:
@@ -233,14 +239,18 @@ python train.py \
     --model_name Qwen/Qwen2.5-3B-Instruct \
     --run_name qwen_seed42/entropy_pissa_inverted \
     --output_dir outputs \
-    --eval_benchmarks bbh,arc_challenge \
+    --eval_benchmarks arc_challenge \
     --eval_limit 500 --eval_batch_size 8 --max_new_tokens 512 \
     --seed 42 --skip_train --skip_plots
 ```
 
 `--skip_train` skips both the SVD allocation and the training split, so only the adapter and
 the benchmark load. Extra benchmarks are written next to the GSM8K artifact with a suffix
-(`eval_<mode>_bbh.json`), so existing results are never overwritten.
+(`eval_<mode>_arc_challenge.json`), so existing results are never overwritten.
+
+To generate BBH as well, add `bbh` to `--eval_benchmarks` and allow roughly 15 GPU hours for
+all 16 adapters. Each of the 24 subtasks is capped by `--bbh_max_per_subtask` so the aggregate
+stays balanced.
 
 Then build the cross-benchmark tables and paired tests:
 
@@ -321,8 +331,8 @@ python train.py \
 | `--per_device_batch_size` | `2` | Micro batch size |
 | `--gradient_accumulation_steps` | `4` | Effective batch is 8 |
 | `--eval_limit` | `200` | GSM8K test examples to score |
-| `--eval_benchmarks` | `gsm8k` | Comma separated: `gsm8k`, `bbh`, `arc_challenge`, or `all` |
-| `--bbh_max_per_subtask` | `100` | Cap per BIG-Bench Hard subtask so the aggregate stays balanced |
+| `--eval_benchmarks` | `gsm8k` | Comma separated: `gsm8k`, `arc_challenge` (both reported), `bbh` (implemented, not run), or `all` |
+| `--bbh_max_per_subtask` | `100` | Cap per BIG-Bench Hard subtask so the aggregate stays balanced (only used by `bbh`) |
 | `--base_model_reference` | off | Also score the un-finetuned base model, the zero-shot floor for absolute scores |
 | `--cpu_only` | off | Force float32 on CPU for debugging |
 

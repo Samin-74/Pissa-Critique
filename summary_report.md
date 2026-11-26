@@ -474,6 +474,7 @@ python train.py \
   here: the same allocation scored on a different task.
 - `r_min=4` was never binding on Qwen (minimum realized rank 6), and the interaction between
   `r_min` and the allocation direction was not ablated.
-- BIG-Bench Hard is registered in `src/benchmarks.py` and validated by the oracle test, but
-  its results are not yet generated. At 2400 items x 16 adapters it costs roughly 15 GPU hours
-  and was deferred in favour of ARC-Challenge.
+- BIG-Bench Hard is registered in `src/benchmarks.py`, and its scorer is unit-tested in
+  `test_allocator.py`, but no BBH results are generated in this repository. At 2400 items
+  across 16 adapters it costs roughly 15 GPU hours and was deferred in favour of
+  ARC-Challenge.
