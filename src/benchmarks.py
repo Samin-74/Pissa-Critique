@@ -107,8 +107,7 @@ class BenchmarkSpec:
             expected = normalize_number(reference)
             prediction = _last_number(raw_output)
             return prediction, prediction is not None and prediction == expected
-        # Free-form targets are matched as a whole-word phrase inside the normalized reply,
-        # which covers both short labels (valid/invalid) and long strings (word_sorting)
+        # Whole-word match covers short labels (valid/invalid) and long strings (word_sorting)
         expected_text = normalize_text(reference)
         haystack = normalize_text(raw_output)
         if expected_text and re.search(
@@ -239,8 +238,7 @@ def _arc_examples(limit: int, max_per_subtask: Optional[int]) -> List[Example]:
     dataset = load_dataset("allenai/ai2_arc", "ARC-Challenge", split="test")
     rows = list(dataset)
     if limit and 0 < limit < len(rows):
-        # ARC test rows are grouped by topic, so a head slice would be biased.
-        # Shuffle with a fixed seed: reproducible, but topic-balanced.
+        # ARC rows are topic-grouped, so shuffle with a fixed seed instead of slicing
         import random
 
         shuffled = list(rows)

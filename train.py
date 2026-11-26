@@ -549,8 +549,7 @@ def evaluate_single_mode(
         payload["instruction_following_rate"] = round(
             100.0 * parsed / max(result.num_examples, 1), 4
         )
-        # Separates "solved it but answered in the wrong format" from "got it wrong",
-        # which matters when a mode collapses into the training-set answer format
+        # Keeps "answered in the wrong format" distinct from "got it wrong"
         payload["accuracy_pct_among_parsed"] = round(
             100.0 * result.num_correct / max(parsed, 1), 4
         )
@@ -782,8 +781,7 @@ def write_comparison_plots(
 
 
 def write_results_table(run_summaries: Dict[str, Dict[str, Any]], args: argparse.Namespace) -> None:
-    # Eval-only runs carry no training metrics, so writing here would replace the
-    # four-mode comparison table with a single row of zeros
+    # Eval-only runs would clobber the four-mode table with one row of zeros
     if args.skip_train:
         log("skip_train set: leaving the comparison table untouched")
         return

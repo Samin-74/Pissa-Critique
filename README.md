@@ -11,8 +11,8 @@ uniform `r=16` baseline.
 
 ## Headline result
 
-The inverted allocation (more rank to spectrally concentrated projections) is the best PiSSA
-variant on both models tested, and the default allocation fails on one of them:
+On GSM8K, the inverted allocation (more rank to spectrally concentrated projections) is the
+best PiSSA variant on both models tested, and the default allocation fails on one of them:
 
 | Model | Uniform PiSSA | Entropy-PiSSA inverted | Delta |
 | --- | --- | --- | --- |
@@ -21,8 +21,13 @@ variant on both models tested, and the default allocation fails on one of them:
 
 The default direction scores 1.50 +/- 0.71 on Qwen2.5 (training diverges on both seeds) but
 66.60 +/- 1.13 on Phi-3.5. The difference is traced to the `ln(min(m, n))` normalization
-interacting with the mix of module widths in each model. `summary_report.md` has the full
-analysis.
+interacting with the mix of module widths in each model.
+
+**The GSM8K advantage does not generalize.** The same adapters, scored without retraining on
+ARC-Challenge science questions, show the inverted allocation *below* uniform PiSSA on both
+models (-15.10 Qwen, -1.40 Phi, paired p < 0.001). Both base models also outscore every
+fine-tuned variant on both benchmarks, so at 3000 examples the fine-tuning is not improving
+either task in absolute terms. `summary_report.md` has the full analysis and the caveats.
 
 ## Method
 
@@ -99,9 +104,11 @@ direction corrects. See `summary_report.md` for the measured consequences.
 |   |-- evaluator.py        batched greedy generation and benchmark scoring
 |   `-- utils.py            prompt construction, answer extraction, loss recording, plots
 `-- outputs/
-    |-- analysis/           per-model allocation artifacts
+    |-- analysis/           per-model allocation artifacts (compact + full spectra)
     |-- plots/              33 PNG figures at 200 dpi
-    |-- results/            comparison CSVs and summary_metrics.json
+    |-- results/            comparison CSVs, summary_metrics.json, benchmark tables
+    |-- base_reference_qwen/  un-finetuned scores (zero-shot floor)
+    |-- base_reference_phi/
     |-- qwen_seed42/        uniform_lora, uniform_pissa, entropy_pissa, entropy_pissa_inverted
     |-- qwen_seed123/
     |-- phi_seed42/
@@ -109,8 +116,10 @@ direction corrects. See `summary_report.md` for the measured consequences.
 ```
 
 Each run directory holds `adapter/adapter_config.json`, `loss_curve.{json,csv}`,
-`train_metrics.json`, and `eval_<mode>.{json,csv}`. Adapter weight files and per-run logs are
-not committed; `outputs/logs/` is created when you run the suite.
+`train_metrics.json`, and `eval_<mode>.{json,csv}`. Extra benchmarks add a suffix
+(`eval_<mode>_arc_challenge.{json,csv}`). Adapter weight files and per-run logs are not
+committed; `outputs/logs/` is created when you run the suite, and `outputs/results/` holds
+only the aggregated tables.
 
 ## Hardware requirements
 

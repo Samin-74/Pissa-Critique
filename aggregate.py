@@ -205,8 +205,6 @@ def write_tables(rows: List[Dict[str, Any]], summary: List[Dict[str, Any]], outp
         "max_token_entropy",
         "final_token_accuracy",
     ]
-    save_csv(rows, os.path.join(results_dir, "runs_all.csv"), fieldnames=per_run_fields)
-
     for tag in MODEL_TAGS:
         subset = [r for r in rows if r["model"] == tag]
         if subset:

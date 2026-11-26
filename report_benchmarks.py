@@ -59,8 +59,7 @@ def collect(output_dir: str) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     for group in discover_groups(output_dir):
         if is_base_group(group):
-            # Base-reference artifacts sit directly in the group dir, not a mode subdir.
-            # The family suffix keeps each model's reference in its own column.
+            # Base refs sit in the group dir, and the family suffix keeps the columns apart
             model = group[len("base_reference_"):] or "base"
             seed, modes = 0, ("base_model",)
         else:

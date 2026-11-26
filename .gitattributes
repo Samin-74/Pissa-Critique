@@ -5,6 +5,9 @@
 *.cmd text eol=crlf
 *.ps1 text eol=crlf
 
+# csv writer emits CRLF, so match it to stop the working tree flapping
+*.csv text eol=crlf
+
 # Binary artifacts
 *.png binary
 *.safetensors binary
